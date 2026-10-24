@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星火 PPT · AI 网页 PPT 生成器</title>
+<style>
+:root{
+  --bg:#0D1226; --bg2:#0A0E20; --panel:#131A33; --panel2:#17203D;
+  --line:rgba(255,255,255,.18); --line2:rgba(255,255,255,.09);
+  --paper:rgba(255,255,255,.07);
+  --ink:#ECEAF4; --ink2:#B7BDDA; --ink3:#828AAF;
+  --gold:#F2C66D; --gold-hi:#FFD98A; --gold-deep:#C9943F;
+  --blue:#82A6FF; --blue-soft:#5E7BC4;
+  --ember:#E8915B; --ember-soft:#C46A40;
+  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:ui-monospace,"SFMono-Regular",Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);color:var(--ink);line-height:1.75;min-height:100vh;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(130,166,255,.10), transparent 60%),
+    radial-gradient(1000px 700px at 0% 10%, rgba(242,198,109,.07), transparent 55%),
+    linear-gradient(180deg,#0D1226 0%, #0A0E20 45%, #0B1024 100%);
+  background-attachment:fixed;padding-bottom:70px;
+}
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.wrap{position:relative;z-index:1;max-width:1160px;margin:0 auto;padding:0 18px}
+a{color:var(--blue);text-decoration:none}
+h1,h2,h3,h4{font-family:var(--serif);line-height:1.35}
+
+/* 顶部标题栏 —— 复刻星火pro */
+.topbar{padding:34px 0 6px;text-align:center}
+.topbar .kicker{font-size:12px;letter-spacing:4px;color:var(--ink3);text-transform:uppercase}
+.topbar h1{font-size:42px;font-weight:900;color:var(--gold-hi);margin:8px 0 4px;letter-spacing:2px;
+  background:linear-gradient(180deg,var(--gold-hi),var(--gold-deep));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-fill-color:transparent}
+.topbar .sub{font-size:13px;color:var(--ink3);letter-spacing:3px;text-transform:uppercase}
+.topbar .sub .cn{color:var(--ink2);text-transform:none;letter-spacing:1px}
+.poem{font-family:var(--serif);color:var(--gold);font-size:16px;text-align:center;line-height:2;margin:14px 0 4px;letter-spacing:2px}
+.poem .small{display:block;font-size:11.5px;color:var(--ink3);letter-spacing:3px}
+
+/* 工作区：配置 + 预览 两栏玻璃卡片 */
+.work{display:grid;grid-template-columns:370px 1fr;gap:18px;align-items:start;margin-top:14px}
+@media(max-width:980px){.work{grid-template-columns:1fr}}
+.card{background:var(--paper);border:1.5px solid var(--line);border-radius:18px;padding:20px 20px}
+.card .card-t{font-size:13px;letter-spacing:2px;color:var(--ink3);margin-bottom:14px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.card .card-t b{color:var(--gold-hi);font-weight:700}
+
+/* 配置项 */
+.label{font-size:12.5px;color:var(--ink2);letter-spacing:1px;margin:15px 0 7px}
+.label:first-of-type{margin-top:0}
+input.ipt,textarea.ipt,select.ipt{width:100%;background:var(--panel2);border:1.5px solid var(--line);color:var(--ink);
+  border-radius:12px;padding:10px 12px;font-size:13.5px;font-family:var(--sans);transition:.15s}
+input.ipt:focus,textarea.ipt:focus,select.ipt:focus{outline:none;border-color:rgba(242,198,109,.55);background:rgba(242,198,109,.04)}
+textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
+.optrow{display:flex;gap:8px}
+.api-note{font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.7}
+.keyguide{margin-top:10px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2);padding:0 12px}
+.keyguide summary{cursor:pointer;font-size:12px;color:var(--gold);padding:10px 0;letter-spacing:.3px;list-style:none}
+.keyguide summary::-webkit-details-marker{display:none}
+.keyguide summary::before{content:"▸ ";opacity:.8}
+.keyguide[open] summary::before{content:"▾ "}
+.keyguide summary:hover{color:var(--gold-hi)}
+.keyguide .kg-body{border-top:1px solid var(--line2);padding:12px 0 14px;font-size:11.5px;color:var(--ink2);line-height:1.85}
+.keyguide .kg-body p{margin:0 0 9px}
+.keyguide .kg-body p:last-child{margin-bottom:0}
+.keyguide .kg-body b{color:var(--gold-hi);font-weight:600}
+.keyguide .kg-body code{font-family:var(--mono);font-size:10.5px;background:rgba(255,255,255,.07);
+  padding:1px 5px;border-radius:4px;color:var(--gold-hi)}
+.keyguide .kg-body a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
+.keyguide .kg-warn{color:var(--ink3);background:rgba(242,198,109,.06);border-left:2px solid var(--gold);
+  padding:9px 10px;border-radius:0 6px 6px 0}
+
+/* 应用方向 —— 胶囊 seg */
+.skills{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.skill{position:relative;background:var(--panel2);border:1.5px solid var(--line);border-radius:12px;
+  padding:10px 12px 10px 30px;font-size:13px;color:var(--ink2);cursor:pointer;transition:.18s;overflow:hidden}
+.skill::before{content:"";position:absolute;left:11px;top:50%;transform:translateY(-50%);width:12px;height:12px;
+  border-radius:50%;border:1.5px solid var(--line)}
+.skill .d{display:block;font-size:10.5px;color:var(--ink3);margin-top:1px}
+.skill.on{border-color:var(--gold);color:var(--gold-hi);background:rgba(242,198,109,.12)}
+.skill.on::before{background:var(--gold);border-color:var(--gold)}
+.skill.on .d{color:var(--ink2)}
+
+/* 模板 */
+.tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tpl-pick{border:2px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:.18s;background:var(--panel2)}
+.tpl-pick.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-deep)}
+.tpl-pick .sw{height:48px;display:block}
+.tpl-pick .nm{display:block;text-align:center;font-size:11px;color:var(--ink2);padding:5px 2px}
+.sw1{background:linear-gradient(160deg,#0D1226,#1a2545)}
+.sw2{background:linear-gradient(160deg,#F7F8FC,#E6EAF4)}
+.sw3{background:linear-gradient(160deg,#0f3d34,#17614e)}
+.sw4{background:linear-gradient(160deg,#1a1a2e,#24243e)}
+.sw5{background:linear-gradient(160deg,#2a1b3d,#3d235e)}
+.sw6{background:linear-gradient(160deg,#0c2d48,#14567a)}
+
+/* 上传 */
+.file-drop{margin-top:7px;border:1.5px dashed var(--line);border-radius:12px;padding:13px;text-align:center;
+  font-size:12.5px;color:var(--ink3);cursor:pointer;transition:.15s}
+.file-drop:hover,.file-drop.drag{border-color:var(--gold);color:var(--gold-hi)}
+.file-drop input{display:none}
+.ref-list{margin-top:7px;display:flex;flex-direction:column;gap:6px}
+.ref-item{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line2);
+  border-radius:8px;padding:6px 10px;font-size:12px;color:var(--ink2)}
+.ref-item .rm{margin-left:auto;cursor:pointer;color:var(--ember);font-size:15px;line-height:1}
+
+/* 生成按钮 —— 星火pro 的 .btn.primary */
+.gen-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin-top:16px;
+  padding:14px;border:1.5px solid var(--gold-deep);border-radius:14px;cursor:pointer;font-size:15px;font-weight:700;letter-spacing:2px;
+  color:#3A2A0E;background:linear-gradient(180deg,var(--gold-hi),var(--gold));box-shadow:0 10px 30px rgba(242,198,109,.22);transition:.18s;font-family:var(--sans)}
+.gen-btn:hover{filter:brightness(1.05)}
+.gen-btn:active{transform:scale(.98)}
+.gen-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.gen-btn .spin{width:15px;height:15px;border:2px solid rgba(58,42,14,.4);border-top-color:#3A2A0E;border-radius:50%;animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.api-state{font-size:12px;color:var(--ink3);margin-top:11px;text-align:center}
+.api-state .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:var(--ink3)}
+.api-state .dot.ok{background:#5CD68A}.api-state .dot.bad{background:var(--ember)}
+
+/* 预览卡片 */
+.cv-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.cv-head h3{font-size:18px;color:var(--gold-hi);letter-spacing:1px}
+.cv-head .bar{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.cv-tools{display:flex;gap:7px;flex-wrap:wrap}
+.tbtn{background:var(--panel2);border:1.5px solid var(--line);color:var(--ink2);font-size:12.5px;
+  padding:7px 13px;border-radius:999px;cursor:pointer;transition:.18s;font-family:var(--sans)}
+.tbtn:hover{color:var(--gold-hi);border-color:rgba(242,198,109,.5)}
+.tbtn:disabled{opacity:.4;cursor:not-allowed}
+.tbtn.primary{background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:#3A2A0E;border-color:var(--gold-deep);font-weight:700}
+.tbtn.danger{color:var(--ember)}
+.tbtn.hide{display:none}
+
+/* 空态 */
+.canvas.empty{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  border:1.5px dashed var(--line2);border-radius:16px;color:var(--ink3);margin-bottom:16px}
+.canvas.empty .big{font-size:40px;color:var(--gold-deep)}
+.canvas.empty .t{font-family:var(--serif);color:var(--ink2);font-size:16px;letter-spacing:2px}
+.canvas.empty .d{font-size:12.5px}
+
+/* 进度 */
+.progress{display:none;margin-bottom:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.progress.show{display:block}
+.progress .line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink2);min-height:22px}
+.progress .line .cur{color:var(--gold-hi);font-weight:700}
+.progress .bar{height:4px;background:rgba(255,255,255,.08);border-radius:99px;margin-top:9px;overflow:hidden}
+.progress .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#F2C66D,#E8915B);border-radius:99px;transition:width .3s}
+
+/* 缩略图 */
+.thumbs{display:flex;gap:7px;overflow-x:auto;padding-bottom:5px;margin-bottom:12px}
+.thumb-btn{flex:none;width:72px;border:2px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;
+  background:rgba(255,255,255,.03);transition:.18s}
+.thumb-btn.on{border-color:var(--gold)}
+.thumb-btn .mini{height:42px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--ink3)}
+.thumb-btn .no{font-size:10px;color:var(--ink3);text-align:center;padding:2px 0;background:var(--panel2)}
+
+/* 舞台 */
+.stage-wrap{position:relative;width:100%;border-radius:16px;padding:18px;background:rgba(5,7,15,.4);
+  box-shadow:inset 0 0 0 1px var(--line2)}
+.stage{width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;position:relative;container-type:size;
+  box-shadow:0 18px 50px rgba(0,0,0,.5);margin:0 auto;max-width:940px}
+.stage .page-edit{position:absolute;inset:0}
+
+/* ---- 模板主题（6套）---- */
+.theme-t1{--tk:var(--gold);--th:#FFD98A;--tsub:#B7BDDA;--tcard:rgba(255,255,255,.05);--tborder:rgba(255,255,255,.14);--tp:#ECEAF4;--tcardh:var(--gold);--bg:linear-gradient(160deg,#0D1226,#1a2545 60%,#0f1730);--deco:#F2C66D}
+.theme-t2{--tk:#5E7BC4;--th:#26335c;--tsub:#6b7a9e;--tcard:#ffffff;--tborder:#e2e7f2;--tp:#4a5678;--tcardh:#E8915B;--bg:linear-gradient(160deg,#F7F8FC,#EEF1FA 70%,#E6EAF4);--deco:#E8915B}
+.theme-t3{--tk:#a8e0c2;--th:#eafaf1;--tsub:#b5dac9;--tcard:rgba(255,255,255,.05);--tborder:rgba(168,224,194,.3);--tp:#cfe8db;--tcardh:#a8e0c2;--bg:linear-gradient(160deg,#0f3d34,#17614e 60%,#123c33);--deco:#4ecda8}
+.theme-t4{--tk:#d4af55;--th:#f2e6c4;--tsub:#b9ad8a;--tcard:rgba(25,25,53,.6);--tborder:rgba(212,175,85,.3);--tp:#cfc8b0;--tcardh:#d4af55;--bg:linear-gradient(160deg,#1a1a2e,#24243e 60%,#191935);--deco:#d4af55}
+.theme-t5{--tk:#c8a8f0;--th:#f2e8ff;--tsub:#cbb8e8;--tcard:rgba(255,255,255,.05);--tborder:rgba(200,168,240,.3);--tp:#d9c8f2;--tcardh:#c8a8f0;--bg:linear-gradient(160deg,#2a1b3d,#3d235e 55%,#241637);--deco:#c8a8f0}
+.theme-t6{--tk:#9fd4ff;--th:#eaf6ff;--tsub:#b8d8f2;--tcard:rgba(255,255,255,.05);--tborder:rgba(140,200,255,.28);--tp:#cfe6f5;--tcardh:#9fd4ff;--bg:linear-gradient(160deg,#0c2d48,#14567a 60%,#0a2740);--deco:#9fd4ff}
+
+/* ---- 排版内核：字阶 2.1/1/0.73 · 8px 网格 · 统一 gutter ---- */
+.page{position:absolute;inset:0;font-family:var(--sans);background:var(--bg);
+  display:flex;flex-direction:column;padding:5.263cqw var(--gutter) 4.474cqw;overflow:hidden;
+  --gutter:7.368cqw;--ts-title:4.079cqw;--ts-body:1.974cqw;--ts-note:1.447cqw;
+  line-break:strict;word-break:break-word}
+.page .pno{position:absolute;right:22px;bottom:14px;font-size:calc(1.447cqw * var(--k,1));color:var(--tsub);opacity:.45;letter-spacing:1px;font-family:var(--mono)}
+.page .pt{font-family:var(--serif);font-size:var(--ts-title);color:var(--th);font-weight:700;line-height:1.34;margin-bottom:8px;max-width:88%}
+.page .phr{width:40px;height:2px;background:linear-gradient(90deg,var(--tk),transparent);margin:10px 0 0;flex:none}
+.page .pnote{margin-top:auto;padding:1.579cqw 8.421cqw 0 0;border-top:1px solid var(--tborder);
+  font-size:var(--ts-note);color:var(--tsub);line-height:1.65;letter-spacing:.3px;flex:none}
+.page .pnote::before{content:"▸ ";color:var(--tk);opacity:.85}
+
+/* 封面 / 封底 */
+.page.cover{align-items:center;justify-content:center;text-align:center;padding:60px}
+.page.cover .ck{font-size:calc(1.447cqw * var(--k,1));letter-spacing:4px;color:var(--tk);text-transform:uppercase;margin-bottom:14px}
+.page.cover .ct{font-family:var(--serif);font-size:calc(6.053cqw * var(--k,1));color:var(--th);font-weight:900;line-height:1.3;letter-spacing:1px;max-width:88%}
+.page.cover .cb{width:46px;height:3px;background:linear-gradient(90deg,var(--tk),transparent);margin:18px auto}
+.page.cover .cs{font-size:calc(1.842cqw * var(--k,1));color:var(--tsub);letter-spacing:2px;max-width:72%;line-height:1.7}
+.page.cover .cm{margin-top:22px;font-size:calc(1.513cqw * var(--k,1));color:var(--tsub);opacity:.72;letter-spacing:2px;max-width:80%;line-height:1.8}
+.page.cover .deco{position:absolute;inset:0;pointer-events:none}
+.page.closing{align-items:center;justify-content:center;text-align:center;padding:60px}
+.page.closing .ct{font-family:var(--serif);font-size:calc(4.737cqw * var(--k,1));color:var(--th);font-weight:900;line-height:1.4;max-width:86%}
+.page.closing .cs{font-size:calc(1.776cqw * var(--k,1));color:var(--tsub);margin-top:16px;letter-spacing:1px;max-width:78%;line-height:2}
+.page.closing .cnote{margin-top:26px;padding-top:2.105cqw;border-top:1px solid var(--tborder);font-size:var(--ts-note);color:var(--tsub);max-width:72%;line-height:1.7;letter-spacing:.3px}
+.page.quote{align-items:center;justify-content:center;text-align:center;padding:9.737cqw 11.842cqw}
+.page.quote .qk{font-size:calc(1.447cqw * var(--k,1));letter-spacing:5px;color:var(--tk);text-transform:uppercase;margin-bottom:26px}
+.page.quote .qt{font-family:var(--serif);font-size:calc(3.947cqw * var(--k,1));color:var(--th);line-height:1.72;font-weight:700;max-width:86%}
+.page.quote .qsrc{margin-top:30px;font-size:calc(1.579cqw * var(--k,1));color:var(--tsub);letter-spacing:2.5px}
+
+/* bullets 要点 */
+.ulist{list-style:none;margin:16px 0 0;max-width:800px}
+.ulist li{position:relative;padding-left:2.895cqw;margin:10px 0;font-size:var(--ts-body);color:var(--tp);line-height:1.75}
+.ulist li::before{content:"";position:absolute;left:2px;top:9px;width:7px;height:7px;background:var(--tk);opacity:.85}
+
+/* two_col 两栏（细线，非卡片） */
+.twocol-body{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:18px;flex:1;align-content:start}
+.tc-col{border-top:2px solid var(--tk);padding-top:1.842cqw;background:none}
+.tc-col h4{font-size:calc(2.105cqw * var(--k,1));color:var(--th);margin-bottom:10px;font-family:var(--serif);font-weight:700}
+.tc-col p{font-size:var(--ts-body);color:var(--tp);line-height:1.8}
+
+/* grid 并列：细线 + 序号 + 留白（取代圆角卡片） */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:22px 28px;margin-top:18px;flex:1;align-content:start}
+.lcell{border-top:2px solid var(--tk);padding-top:1.579cqw}
+.lcell .i{font-family:var(--mono);font-size:calc(1.447cqw * var(--k,1));color:var(--tk);letter-spacing:2px;margin-bottom:7px}
+.lcell p{font-size:calc(1.842cqw * var(--k,1));color:var(--tp);line-height:1.75}
+
+/* kpi 大数字 */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px 30px;margin:auto 0;align-items:end}
+.kpi-cell{border-top:2px solid var(--tk);padding-top:2.105cqw}
+.kpi-num{font-family:var(--serif);font-size:calc(5.789cqw * var(--k,1));font-weight:900;color:var(--th);line-height:1.05;letter-spacing:-.5px}
+.kpi-num small{font-size:calc(2.237cqw * var(--k,1));font-weight:700;margin-left:4px;opacity:.78}
+.kpi-lab{font-size:calc(1.645cqw * var(--k,1));color:var(--tsub);margin-top:9px;letter-spacing:.5px;line-height:1.6}
+
+/* timeline 时间轴 */
+.tl{position:relative;display:flex;margin:36px 0 0;flex:1;align-items:flex-start}
+.tl::before{content:"";position:absolute;left:6px;right:0;top:5px;height:1px;background:var(--tborder)}
+.tl-item{flex:1;position:relative;padding:3.421cqw 2.368cqw 0 0;min-width:0}
+.tl-item::before{content:"";position:absolute;left:0;top:0;width:11px;height:11px;border-radius:50%;background:var(--tk);box-shadow:0 0 0 4px rgba(255,255,255,.07)}
+.tl-h{font-family:var(--serif);font-size:calc(1.974cqw * var(--k,1));color:var(--th);font-weight:700;margin-bottom:8px}
+.tl-d{font-size:calc(1.711cqw * var(--k,1));color:var(--tp);line-height:1.75}
+
+/* steps 流程 */
+.steps{display:flex;margin-top:22px;flex:1;align-items:flex-start}
+.step{flex:1;padding:0 20px;border-left:1px solid var(--tborder);min-width:0}
+.step:first-child{border-left:none;padding-left:0}
+.step-n{font-family:var(--mono);font-size:calc(1.513cqw * var(--k,1));color:var(--tk);letter-spacing:2px}
+.step-t{font-size:calc(1.974cqw * var(--k,1));color:var(--th);font-weight:700;margin:8px 0;font-family:var(--serif)}
+.step-d{font-size:calc(1.711cqw * var(--k,1));color:var(--tp);line-height:1.75}
+
+/* compare 左右对照 */
+.cmp{display:grid;grid-template-columns:1fr 1px 1fr;gap:0 30px;margin-top:20px;flex:1;align-items:start}
+.cmp-col{padding-top:1.842cqw;border-top:2px solid var(--tk)}
+.cmp-col h4{font-family:var(--serif);font-size:calc(2.368cqw * var(--k,1));color:var(--th);margin-bottom:12px;font-weight:700}
+.cmp-col .cmp-item{position:relative;padding-left:2.105cqw;margin:9px 0;font-size:var(--ts-body);color:var(--tp);line-height:1.8}
+.cmp-col .cmp-item::before{content:"";position:absolute;left:0;top:10px;width:6px;height:6px;background:var(--tk);opacity:.8}
+.cmp-rule{background:var(--tborder);height:100%}
+
+/* table 无竖线表格 */
+.tbl{width:100%;border-collapse:collapse;margin-top:20px}
+.tbl th{text-align:left;font-size:calc(1.513cqw * var(--k,1));color:var(--tk);letter-spacing:1.5px;font-weight:600;padding:1.184cqw 1.579cqw;border-bottom:1.5px solid var(--tk);white-space:nowrap}
+.tbl td{font-size:calc(1.776cqw * var(--k,1));color:var(--tp);padding:1.447cqw 1.579cqw;border-bottom:1px solid var(--tborder);line-height:1.6}
+.tbl td:first-child{color:var(--th);font-weight:600}
+.tbl tr:last-child td{border-bottom:none}
+
+/* zigzag 交错 */
+.zz{flex:1;display:flex;flex-direction:column;justify-content:center;margin-top:10px}
+.zz-row{display:grid;grid-template-columns:1fr 1.45fr;gap:26px;align-items:baseline;padding:13px 0;border-bottom:1px solid var(--tborder)}
+.zz-row:last-child{border-bottom:none}
+.zz-h{font-family:var(--serif);font-size:calc(2.105cqw * var(--k,1));color:var(--th);font-weight:700}
+.zz-d{font-size:calc(1.776cqw * var(--k,1));color:var(--tp);line-height:1.75}
+.zz-row:nth-child(even){grid-template-columns:1.45fr 1fr}
+.zz-row:nth-child(even) .zz-h{order:2;text-align:right}
+.zz-row:nth-child(even) .zz-d{order:1;text-align:right}
+
+/* 放映 */
+.overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
+.overlay.on{display:block}
+.overlay .o-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.overlay .o-frame{width:min(100vw,calc(100vh*16/9));aspect-ratio:16/9;position:relative;overflow:hidden;container-type:size}
+.overlay .o-nav{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:110;background:rgba(0,0,0,.55);padding:8px 16px;border-radius:999px}
+.overlay .o-nav button{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;font-family:var(--sans)}
+.overlay .o-nav .cnt{color:#fff;font-size:13px;min-width:40px;text-align:center;font-family:var(--mono)}
+.overlay .o-close{position:absolute;top:20px;right:24px;z-index:110;background:none;border:none;color:#fff;font-size:30px;cursor:pointer}
+
+/* 编辑侧栏 */
+.sheet{position:fixed;top:0;right:-420px;width:400px;height:100%;background:var(--panel);border-left:1px solid var(--line);
+  z-index:80;transition:right .28s ease;padding:22px;overflow-y:auto;box-shadow:-20px 0 60px rgba(0,0,0,.4)}
+.sheet.on{right:0}
+.sheet h3{font-family:var(--serif);color:var(--gold-hi);margin-bottom:16px;font-size:17px}
+.sheet .s-row{margin-bottom:15px}
+.sheet .s-label{font-size:12px;color:var(--ink3);margin-bottom:6px;letter-spacing:1px}
+.sheet .s-row select,.sheet .s-row textarea,.sheet .s-row input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:9px 10px;font-size:13px;font-family:var(--sans)}
+.sheet .s-row textarea{min-height:88px;resize:vertical}
+.sheet .s-btn{display:block;width:100%;padding:11px;border:1.5px solid var(--gold-deep);border-radius:11px;background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:#3A2A0E;font-weight:700;cursor:pointer;margin-top:8px}
+.sheet .s-close{position:absolute;top:16px;right:18px;background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer}
+
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(20,26,51,.96);border:1px solid var(--line);
+  color:var(--ink);padding:11px 22px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:.3s;pointer-events:none}
+#toast.show{opacity:1}
+
+/* 历史 */
+.hist{margin-top:16px}
+.hist .h-item{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line2);
+  border-radius:12px;padding:11px 13px;margin-bottom:7px}
+.hist .h-title{font-family:var(--serif);font-size:14px;color:var(--gold-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist .h-meta{font-size:11px;color:var(--ink3)}
+.hist .h-actions{display:flex;gap:6px}
+.hist .h-actions .tbtn{padding:6px 10px;font-size:11.5px}
+
+/* 更新日志 */
+.logcard{margin-top:18px;border:1px solid var(--line);border-radius:16px;background:var(--panel2);padding:18px}
+.logcard .lc-t{font-family:var(--serif);font-size:16px;color:var(--gold-hi);letter-spacing:1px;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.logcard .lc-sub{font-size:11.5px;color:var(--ink3);margin-bottom:12px}
+.logver{font-size:15px;font-weight:700;color:var(--gold);margin:14px 0 3px;font-family:var(--serif)}
+.logver:first-of-type{margin-top:0}
+.logdate{font-size:11.5px;color:var(--ink3);margin-bottom:6px}
+.loglist{list-style:none;margin:4px 0 6px}
+.loglist li{position:relative;padding-left:18px;font-size:13px;color:var(--ink2);margin:6px 0;line-height:1.7}
+.loglist li::before{content:"·";position:absolute;left:4px;color:var(--gold);font-weight:700}
+@media(max-width:720px){
+  .topbar h1{font-size:30px}
+  .stage{padding:6px}
+  .page{padding:26px 22px}
+  .page .ct{font-size:28px}
+  .page .pt{font-size:20px}
+  .twocol-body{grid-template-columns:1fr;gap:12px}
+  .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .sheet{width:100%;right:-100%}
+}
+</style>
+</head>
+<body>
+<!-- 静态星光背景 -->
+<div class="stars" aria-hidden="true"></div>
+
+<div class="wrap">
+  <!-- 顶部标题栏（复刻星火pro） -->
+  <header class="topbar">
+    <div class="kicker">星火三部曲 · 第三部</div>
+    <h1>星火 · PPT</h1>
+    <div class="sub">SPARK PPT <span class="cn">· AI 网页 PPT 生成器</span></div>
+  </header>
+  <div class="poem">星星之火，可以燎原<span class="small">把长文，化为一页页星河</span></div>
+
+  <div class="work">
+    <!-- 左：生成配置 -->
+    <div class="card config">
+      <div class="card-t">✦ <b>生成配置</b></div>
+
+      <div class="label">模型（必填）</div>
+      <div class="optrow">
+        <select id="model" class="ipt">
+          <option value="deepseek-chat">DeepSeek · deepseek-chat</option>
+          <option value="deepseek-v4-pro" selected>DeepSeek · deepseek-v4-pro</option>
+          <option value="gpt-4o-mini">OpenAI · gpt-4o-mini</option>
+          <option value="qwen-plus">通义千问 · qwen-plus</option>
+          <option value="glm-4-flash">智谱 · glm-4-flash</option>
+          <option value="__custom__">自定义模型…</option>
+        </select>
+      </div>
+      <div class="label">接口地址（可选）</div>
+      <input id="baseUrl" class="ipt" placeholder="https://api.deepseek.com/v1">
+      <div class="label">API Key（必填，由你提供）</div>
+      <input id="apikey" type="password" class="ipt" placeholder="粘贴你的 API Key…">
+      <div class="api-note">🔒 Key 只保存在本机，仅用于本次生成请求，绝不上传其他服务器。</div>
+      <details class="keyguide">
+        <summary>没有 Key？点这里看怎么申请（约 3 分钟）</summary>
+        <div class="kg-body">
+          <p><b>① 注册</b>　打开 <a href="https://platform.deepseek.com" target="_blank" rel="noopener">platform.deepseek.com</a>，用手机号注册并登录。</p>
+          <p><b>② 充值</b>　左侧「充值」，最低 10 元起。生成一份 PPT 通常只花几分钱。</p>
+          <p><b>③ 创建 Key</b>　左侧「API Keys」→「创建 API Key」→ 起个名字 → 复制那串 <code>sk-</code> 开头的字符。</p>
+          <p><b>④ 粘贴回来</b>　粘到上面的输入框；模型选 <code>deepseek-chat</code>，接口地址留默认，然后点「生成 PPT」。</p>
+          <p class="kg-warn">⚠️ 请记住三件事：<br>
+            · Key 只在创建时完整显示一次，关掉页面就看不到，请当场保存；<br>
+            · 别把自己的 Key 发人，它绑的是你的账户余额；<br>
+            · 换成第三方中转站时，若对方不允许浏览器直连，会提示跨域失败 —— 此时换回官方地址即可。</p>
+        </div>
+      </details>
+
+      <div class="label">提示词 / 内容</div>
+      <textarea id="prompt" class="ipt prompt" placeholder="把你要生成 PPT 的文案粘贴到这里，或用口语描述你想讲什么……"></textarea>
+
+      <div class="label">应用方向</div>
+      <div class="skills" id="skills"></div>
+
+      <div class="label">选择模板</div>
+      <div class="tpl-grid" id="tplgrid"></div>
+
+      <div class="label">页数（可选）</div>
+      <div class="optrow"><input id="pages" type="number" min="3" max="15" value="6" class="ipt" placeholder="默认6页"></div>
+
+      <div class="label">参考材料（可选）</div>
+      <div class="file-drop" id="filedrop">点击或拖拽上传参考文档<br><span style="font-size:11px">支持 txt / md / pdf</span></div>
+      <input type="file" id="fileinput" accept=".txt,.md,.pdf,.markdown" multiple>
+      <div class="ref-list" id="reflist"></div>
+
+      <button class="gen-btn" id="genbtn">✦ 生成 PPT</button>
+      <div class="api-state" id="apistate"><span class="dot" id="apidot"></span><span id="apitext">检查服务中…</span></div>
+    </div>
+
+    <!-- 右：幻灯片预览 -->
+    <div class="card cv">
+      <div class="cv-head">
+        <h3>幻灯片</h3>
+        <span class="bar"></span>
+        <div class="cv-tools">
+          <button class="tbtn hide" id="btn-play">▶ 放映</button>
+          <button class="tbtn hide" id="btn-add">+ 新增页</button>
+          <button class="tbtn hide" id="btn-export-html">导出 HTML</button>
+          <button class="tbtn hide primary" id="btn-export-pptx">导出 .pptx</button>
+        </div>
+      </div>
+
+      <div class="progress" id="progressbar">
+        <div class="line"><span class="cur" id="progcur">正在拆解内容…</span><span id="progsub"></span></div>
+        <div class="bar"><i id="progfill"></i></div>
+      </div>
+
+      <div id="canvas" class="canvas empty">
+        <div class="big">✦</div>
+        <div class="t">幻灯片预览区</div>
+        <div class="d">输入内容并填写 API Key 后点击「生成 PPT」，AI 将在这里逐页为你生成</div>
+      </div>
+
+      <div class="thumbs" id="thumbs" style="display:none"></div>
+      <div class="stage-wrap" id="stagewrap" style="display:none">
+        <div class="stage" id="stage"></div>
+      </div>
+
+      <div class="hist" id="hist"></div>
+
+      <div class="logcard">
+        <div class="lc-t">📜 更新日志</div>
+        <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.2 — 可以不用服务器了</div>
+        <div class="logdate">2026-10-24</div>
+        <ul class="loglist">
+          <li><b>纯前端网页版</b>：同一份页面会自动判断环境——有后端就走后端，没有就在浏览器里直接请求接口。因此它现在是<b>一个可以丢到 GitHub Pages / Netlify 的单文件</b>，不再必须开服务器。</li>
+          <li><b>PDF 支持（自己写的解析器）</b>：不引任何第三方库，直接解 FlateDecode / ASCII85 压缩流与 ToUnicode 字表，中文能正常还原。已用四份真实中文 PDF 验证（实验报告 / 选课通知 / 数学习题 / 规章制度）。顺手修掉了旧后端「把 PDF 字节当文本读」的假解析。</li>
+          <li><b>提示更清楚</b>：扫描件（图片型 PDF）提取不到文字时会明确告知，不会静默失败。</li>
+          <li><b>「如何获取 API Key」四步指南</b>：直接内置在页面上，用户不用去别处找；并说明 Key 只在本机、不上传。</li>
+        </ul>
+        <div class="logver">V1.1 — 排版内核重做</div>
+        <div class="logdate">2026-10-24</div>
+        <ul class="loglist">
+          <li><b>版式 5 → 12 种</b>：新增大数字、时间轴、流程步骤、左右对照、金句页、无竖线表格、交错排布；「卡片」改成细线网格，去掉千篇一律的圆角盒子。</li>
+          <li><b>每页多一句「收束句」</b>：页面底部一行细线加一句「所以呢」，讲清这页的结论，不再只是罗列；封面与封底也支持。</li>
+          <li><b>标题改成结论</b>：页标题不再是「第二部：某某」这类栏目名，而是一句判断；只读一遍标题就能讲完整个故事。</li>
+          <li><b>排版跟随舞台等比缩放</b>：字号与留白改用容器单位，窗口拉大缩小都不会偏大溢出、或偏小显得空。</li>
+          <li><b>溢出自动降档</b>：每页渲染后自动量一次，内容超出就按 5% 一档收字号、最多六档，避免文字被裁掉或压边。</li>
+          <li><b>版式渲染自检</b>：启动时逐个校验 12 种版式是否真的画得出来，缺一个就当场提示，杜绝「AI 说要用、前端画不出」的静默降级。</li>
+          <li><b>生成纪律写进提示词</b>：相邻两页不得同版式、同一版式全篇最多 2 次、每页必须给收束句、禁用「闭环 / 赋能 / 解构」这类 AI 腔。</li>
+          <li><b>导出 .pptx 补全</b>：12 种版式各自对应真实排版，收束句一并带出，不再清一色要点列表。</li>
+          <li><b>修复</b>：导出的独立 HTML 打不开（切页用的 id 缺失）、中文偶发乱码（跨数据包被劈开的汉字）、卡片序号超过 9 张显示成 010、pptx 脚本因变量自引用一运行就报错。</li>
+        </ul>
+        <div class="logver">V1.0 — 首发</div>
+        <div class="logdate">2026-10-24</div>
+        <ul class="loglist">
+          <li><b>星火PPT 上线</b>：星火三部曲第三部正式诞生——把长文案化为一份逐页可编辑、可放映、可导出的演示文稿，与「星火续火花」「星火专注 Pro」共成燎原之势。</li>
+          <li><b>API Key 由你自填</b>：模型、接口、Key 全在页面左侧自行配置，选好模型、粘贴自己的 Key 即可生成；Key 本机保存、仅用于本次请求，不落盘、不进日志。</li>
+          <li><b>界面复刻星火专注 Pro 气质</b>：居中鎏金衬线大标题、诗句「星星之火，可以燎原」、深邃夜空蓝 + 玻璃卡片 + 金色描边。</li>
+          <li><b>流式逐页生成</b>：6 套模板 × 6 大方向，AI 把内容现场拆成封面 / 要点 / 双列 / 卡片 / 封底，边生成边见效果。</li>
+          <li><b>两种导出</b>：独立 HTML（自带放映器）或 python-pptx 脚本一键成真 .pptx。</li>
+          <li><b>本地历史</b>：每次生成的 deck 自动保存（最多 30 条），随时重开续改。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑侧栏 -->
+<div class="sheet" id="sheet">
+  <button class="s-close" id="s-close">×</button>
+  <h3>编辑当前页</h3>
+  <div class="s-row"><div class="s-label">页标题</div><input class="ipt" id="s-title"></div>
+  <div class="s-row"><div class="s-label">版式</div><select class="ipt" id="s-layout"></select></div>
+  <div class="s-row"><div class="s-label">要点内容</div><textarea class="ipt" id="s-content" placeholder="每行一个要点&#10;kpi 写「数字|标签」，timeline/steps 写「名称|说明」&#10;compare 写两行「标题|要点①；要点②」，table 写「指标|数值|备注」"></textarea></div>
+  <div class="s-row"><div class="s-label">收束句（页面底部那句「所以呢」）</div><textarea class="ipt" id="s-note" rows="2" placeholder="这页的结论 / 影响 / 下一步"></textarea></div>
+  <button class="s-btn" id="s-save">保存</button>
+</div>
+
+<!-- 放映覆盖层 -->
+<div class="overlay" id="overlay">
+  <button class="o-close" id="o-close">×</button>
+  <div class="o-stage"><div class="o-frame" id="o-frame"></div></div>
+  <div class="o-nav" id="onav">
+    <button id="o-prev">‹</button><span class="cnt" id="o-cnt">1/1</span><button id="o-next">›</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const TPL=[
+  {id:"t1",name:"长夜星火",cls:"theme-t1",sw:"sw1"},
+  {id:"t2",name:"月白清光",cls:"theme-t2",sw:"sw2"},
+  {id:"t3",name:"青峰林海",cls:"theme-t3",sw:"sw3"},
+  {id:"t4",name:"鎏金案牍",cls:"theme-t4",sw:"sw4"},
+  {id:"t5",name:"紫雾星海",cls:"theme-t5",sw:"sw5"},
+  {id:"t6",name:"沧海深蓝",cls:"theme-t6",sw:"sw6"},
+];
+const SKILLS=[
+  {k:"report",n:"职场报告",d:"汇报 / 述职"},
+  {k:"business",n:"商业计划",d:"BP / 路演"},
+  {k:"education",n:"教育课件",d:"教学 / 讲义"},
+  {k:"activity",n:"活动方案",d:"策划 / 执行"},
+  {k:"study",n:"学习笔记",d:"知识梳理"},
+  {k:"general",n:"通用",d:"任何内容"},
+];
+
+let state={doctor:null,slides:[],template:"t1",skill:"report",current:0,refs:[],refTexts:[]};
+let generating=false,ignoreConfirm=false;
+const KEY="xinghuoPPT_v1";
+
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* ---- 渲染方向与模板 ---- */
+function renderSkills(){
+  $("#skills").innerHTML=SKILLS.map(s=>`<div class="skill ${state.skill===s.k?"on":""}" data-k="${s.k}">
+    ${s.n}<span class="d">${s.d}</span></div>`).join("");
+  document.querySelectorAll(".skill").forEach(el=>el.onclick=()=>{
+    state.skill=el.dataset.k;renderSkills();});
+}
+function renderTpls(){
+  $("#tplgrid").innerHTML=TPL.map(t=>`<div class="tpl-pick ${state.template===t.id?"on":""}" data-id="${t.id}">
+    <span class="sw ${t.sw}"></span><span class="nm">${t.name}</span></div>`).join("");
+  document.querySelectorAll(".tpl-pick").forEach(el=>el.onclick=()=>{
+    state.template=el.dataset.id;renderTpls();if(state.doctor)renderSlide();});
+}
+
+/* ---- 文件上传 ---- */
+function addRef(name,text){
+  state.refs.push({name,text});state.refTexts.push(text);renderRefs();}
+function renderRefs(){
+  $("#reflist").innerHTML=state.refs.map((r,i)=>`<div class="ref-item"><span>📄 ${esc(r.name)}</span>
+    <span class="rm" data-i="${i}">✕</span></div>`).join("");
+  document.querySelectorAll(".ref-item .rm").forEach(el=>el.onclick=()=>{
+    const i=+el.dataset.i;state.refs.splice(i,1);state.refTexts.splice(i,1);renderRefs();});
+}
+const fd=$("#filedrop"),fi=$("#fileinput");
+fd.onclick=()=>fi.click();
+fd.ondragover=e=>{e.preventDefault();fd.classList.add("drag");};
+fd.ondragleave=()=>fd.classList.remove("drag");
+fd.ondrop=e=>{e.preventDefault();fd.classList.remove("drag");[...e.dataTransfer.files].forEach(f=>readFile(f));};
+fi.onchange=()=>{[...fi.files].forEach(f=>readFile(f));fi.value="";};
+function readFile(f){
+  if(/\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name)){toast("图片参考暂不支持，请用文字或 PDF");return;}
+
+  // PDF：无论有没有后端，都在浏览器里自己解析（比后端更准）
+  if(/\.pdf$/i.test(f.name)){
+    const rp=new FileReader();
+    rp.onload=async()=>{
+      try{
+        toast("正在解析 PDF…");
+        const text=await pdfExtractText(new Uint8Array(rp.result));
+        if(!text||text.replace(/\s/g,"").length<10){
+          toast("这份 PDF 没提取到文字（可能是扫描件/图片版）");
+          return;
+        }
+        addRef(f.name,text);
+        toast(`已解析 PDF：${f.name}（${text.length} 字）`);
+      }catch(e){toast("PDF 解析失败："+((e&&e.message)||e));}
+    };
+    rp.readAsArrayBuffer(f);
+    return;
+  }
+
+  // 纯文本：有后端走后端，没有就本地读
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      if(state.backend){
+        const res=await fetch("/api/read-file",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({filename:f.name,base64:btoa(String.fromCharCode(...new Uint8Array(r.result)))})});
+        const j=await res.json();
+        if(j.ok){addRef(f.name,j.text);toast(`已添加参考材料：${f.name}`);}
+        else toast("读取失败:"+(j.error||""));
+      }else{
+        const t=new TextDecoder("utf-8").decode(new Uint8Array(r.result));
+        addRef(f.name,t);
+        toast(`已添加参考材料：${f.name}`);
+      }
+    }catch(e){toast("读取文件失败");}
+  };
+  r.readAsArrayBuffer(f);
+}
+
+
+/* ===================== 前端版提示词（纯静态模式用，与后端一致） ===================== */
+const LAYOUT_DOC_JS = `可用版式（layout）与 content 写法（content 永远是字符串数组）：
+- cover　封面。content 给 1~3 条副信息（场合 / 时间 / 汇报人），可不给。
+- closing　封底。content 给 2~3 条收束要点，不要只写「谢谢」。
+- bullets　要点页。3~5 条，每条一句完整判断。
+- two_col　两栏说明。4~6 条；第 1 条与第 2 条会被当作左右栏小标题，其余为栏内正文。
+- grid　　并列条目（细线网格）。3~6 条，每条一句。
+- kpi　　　大数字页。2~4 条，格式「数字|标签」，例：「3|部曲」「14.6|秒生成」。只有内容里确实有数字时才用。
+- timeline 时间轴。3~5 条，格式「阶段|说明」。
+- steps　　流程推进。3~5 条，格式「步骤名|说明」。
+- compare　左右对照。恰好 2 条，格式「大标题|要点①；要点②；要点③」。
+- quote　　金句页。恰好 1 条引文；出处写在 note 里。
+- table　　无竖线表格。3~6 条，格式「指标|数值|备注」。
+- zigzag　 交错图文。4~6 条，格式「小标题|说明」，左右交替排布。`;
+
+const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
+1. 【标题即结论】页标题必须是一句有信息量的判断，不能是标签。
+   反例：「第二部：星火专注Pro」「背景」「概述」「核心功能」。
+   正例：「第二部把专注变成一条看得见的链」「三个动作撑起一次完整专注」。
+   把所有页标题连起来读，应当能讲完整个故事。
+2. 【一页一件事】1 个主题 + 2~4 个支撑点；单页 content 不超过 6 条。
+3. 【底部收束句】每页必须给 note：一句「所以呢」，20~40 字，讲这页的结论 / 影响 / 下一步。封面与封底可省略。
+4. 【版式现场定制】按这份内容自己的结构来设计版式组合，不要套固定套路：
+   - 相邻两页不得使用相同 layout；
+   - 同一 layout 全篇最多出现 2 次；
+   - 页数 ≥ 5 时，全篇至少使用 4 种不同 layout；
+   - 只有内容确实是并列项时才用 grid；只有确实有数字时才用 kpi；
+   - 不要用「每页都三张等宽卡片」这种形式。
+5. 【少用均分】能用两栏对照、时间轴、流程、交错排布的，就不要全用并列网格。
+6. 【语体】具体、克制、以事实说话，不要长句堆砌。
+   禁用以下 AI 腔词与句式：闭环、赋能、解构、抓手、主战场、护城河、全方位、助力、深度赋能、看似……实则……、不是……而是……、不仅……更是……。
+7. 【证据边界】不编造原文没有的数据、案例、机构名、时间。原文没有数字就绝不写数字。
+8. 【文字工整】每条 12~30 字，短句优先，不要把小作文塞进一条。`;
+
+const SKILL_META = {
+  report:    { name:"职场报告", desc:"工作汇报 / 述职：结论先行、分条陈述、重点标金、数据支撑，庄重清晰。",
+               structure:["封面","核心成果","关键数据","困难与对策","下一步计划"] },
+  business:  { name:"商业计划", desc:"BP / 融资路演：市场空间、竞争格局、商业模式、财务模型、落地路径。",
+               structure:["封面","市场机会","产品与服务","商业模式","竞争分析","财务与规划"] },
+  education: { name:"教育课件", desc:"教学讲义 / 课程：学习目标、知识讲解、小结、随堂练习，由浅入深、护眼舒适。",
+               structure:["封面","学习目标","重点讲解","知识小结","随堂练习"] },
+  activity:  { name:"活动方案", desc:"活动策划 / 执行：主题立意、流程、分工、预算、风险，落地方案。",
+               structure:["封面","活动主题","活动安排","分工协作","预算与物料","风险预案"] },
+  study:     { name:"学习笔记", desc:"知识梳理 / 复习：核心概念、结构拆解、要点归纳、易错提醒。",
+               structure:["封面","核心概念","结构拆解","要点归纳","易错提醒"] },
+  general:   { name:"通用", desc:"通用文案：自动提取主线、分层组织，任何内容都能成篇。",
+               structure:["封面","切入","展开","深度","收束"] }
+};
+
+function buildSystemPromptJS(skillKey){
+  const s = SKILL_META[skillKey] || SKILL_META.general;
+  return "你是「星火PPT」的版面设计总监，负责把用户的文案重排成一份可以直接演示的多页网页 PPT。\n" +
+    "你只输出 JSON，不要任何解释、markdown 代码块或多余文字。\n" +
+    "应用方向：" + s.name + "。" + s.desc + "\n\n" +
+    "输出结构（严格遵守）：\n" +
+    "{\n" +
+    '  "title": "整份 PPT 的主标题（一句结论，不是栏目名）",\n' +
+    '  "subtitle": "一句话副标题：说清这份 PPT 对读者有什么用",\n' +
+    '  "slides": [\n' +
+    '    { "title": "页标题（一句结论）",\n' +
+    '      "layout": "版式名",\n' +
+    '      "content": ["…", "…"],\n' +
+    '      "note": "这一页的收束句" }\n' +
+    "  ]\n" +
+    "}\n\n" + LAYOUT_DOC_JS + "\n\n" + DESIGN_RULES_JS + "\n\n" +
+    "结构要求：第一页 layout=cover，最后一页 layout=closing，中间页自选版式。\n" +
+    "内容忠于原文；原文不足以支撑页数时，宁可少一页，也不要编造或灌水。\n";
+}
+
+function buildUserPromptJS(text, skillKey, pagesHint, refText){
+  const s = SKILL_META[skillKey] || SKILL_META.general;
+  const parts = ["应用方向：" + s.name + "。\n\n请根据下面内容生成一份 PPT：\n\n" + text];
+  if (refText) parts.push("\n\n【用户提供的参考材料（可引用）】：\n" + String(refText).slice(0, 20000));
+  if (pagesHint && pagesHint >= 3) {
+    parts.push("\n\n请尽量控制在约 " + pagesHint + " 页。推荐结构参考：" + s.structure.join("、"));
+  } else {
+    parts.push("\n\n推荐结构参考：" + s.structure.join("、"));
+  }
+  return parts.join("\n\n");
+}
+
+/* 把「浏览器直连」包装成与后端完全相同的 SSE 流，前端解析代码不用改 */
+function normalizeBaseUrl(u){
+  u = (u || "").trim();
+  if (!u) u = "https://api.deepseek.com/v1";
+  u = u.replace(/\/+$/, "");
+  u = u.replace(/\/chat\/completions$/, "");
+  return u;
+}
+
+function directGenerate(body){
+  const sd = new TransformStream();
+  const w = sd.writable.getWriter();
+  const enc = new TextEncoder();
+  const send = (evt, data) => w.write(enc.encode("event: " + evt + "\ndata: " + JSON.stringify(data) + "\n\n"));
+
+  (async function () {
+    try {
+      const sysp = buildSystemPromptJS(body.skill);
+      const usrp = buildUserPromptJS(body.text, body.skill, body.pages, body.refText);
+      const url = normalizeBaseUrl(body.baseUrl) + "/chat/completions";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + body.apiKey },
+        body: JSON.stringify({
+          model: body.model, stream: true, temperature: 0.7,
+          messages: [{ role: "system", content: sysp }, { role: "user", content: usrp }]
+        })
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(function(){ return ""; });
+        throw new Error("接口返回 " + res.status + "：" + String(t).slice(0, 300));
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const r = await reader.read();
+        if (r.done) break;
+        buf += dec.decode(r.value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const evt = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const lines = evt.split("\n");
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.indexOf("data:") !== 0) continue;
+            const d = line.slice(5).trim();
+            if (!d || d === "[DONE]") continue;
+            let o; try { o = JSON.parse(d); } catch (e) { continue; }
+            const ch = (o.choices && o.choices[0]) || {};
+            const piece = (ch.delta && ch.delta.content) || "";
+            if (piece) await send("chunk", piece);
+          }
+        }
+      }
+      await send("done", "");
+    } catch (e) {
+      await send("error", String((e && e.message) || e));
+    } finally {
+      try { await w.close(); } catch (e) {}
+    }
+  })();
+
+  return { ok: true, body: sd.readable };
+}
+
+/* ===================================================================
+ * 星火PPT · 内置 PDF 文字提取器（纯 JavaScript，零第三方依赖）
+ * 支持：未加密 PDF、FlateDecode、ToUnicode CMap（含中文）、UTF-16 字符串
+ * 不支持：扫描件（图片型 PDF，需 OCR）、加密 PDF
+ * =================================================================== */
+(function (global) {
+  "use strict";
+
+  function bytesToLatin1(b) {
+    var s = "", CH = 0x8000;
+    for (var i = 0; i < b.length; i += CH) {
+      s += String.fromCharCode.apply(null, b.subarray(i, Math.min(i + CH, b.length)));
+    }
+    return s;
+  }
+
+  function hexClean(h) { return h.replace(/[^0-9A-Fa-f]/g, ""); }
+
+  function hexToStr(hex) {
+    hex = hexClean(hex);
+    if (hex.length === 2) return String.fromCharCode(parseInt(hex, 16));
+    if (hex.length % 4 === 2) hex = "00" + hex;
+    var out = "";
+    for (var i = 0; i + 4 <= hex.length; i += 4) {
+      var c = parseInt(hex.substr(i, 4), 16);
+      if (c) out += String.fromCharCode(c);
+    }
+    return out;
+  }
+
+  function incrementHex(hex, delta) {
+    hex = hexClean(hex);
+    if (hex.length % 4 === 2) hex = "00" + hex;
+    var v = (parseInt(hex.slice(-4), 16) + delta) & 0xffff;
+    return hex.slice(0, -4) + ("0000" + v.toString(16)).slice(-4);
+  }
+
+  function inflateOnce(bytes, fmt) {
+    var ds = new DecompressionStream(fmt);
+    var s = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Response(s).arrayBuffer().then(function (ab) { return new Uint8Array(ab); });
+  }
+  function inflate(bytes) {
+    return inflateOnce(bytes, "deflate")
+      .catch(function () { return inflateOnce(bytes, "deflate-raw"); })
+      .catch(function () { return null; });
+  }
+
+  /* ---------------- CMap ---------------- */
+  function parseCMap(txt) {
+    var map = {}, width = 1;
+    var cs = /begincodespacerange[\s\S]{0,400}?<([0-9A-Fa-f]+)>/.exec(txt);
+    if (cs) width = Math.max(1, Math.ceil(hexClean(cs[1]).length / 2));
+
+    var m, i;
+    var reChar = /beginbfchar([\s\S]*?)endbfchar/g;
+    while ((m = reChar.exec(txt))) {
+      var p, pair = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g;
+      while ((p = pair.exec(m[1]))) map[parseInt(p[1], 16)] = hexToStr(p[2]);
+    }
+    var reRange = /beginbfrange([\s\S]*?)endbfrange/g;
+    while ((m = reRange.exec(txt))) {
+      var t, tri = /<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(?:<([0-9A-Fa-f]+)>|\[([\s\S]*?)\])/g;
+      while ((t = tri.exec(m[1]))) {
+        var lo = parseInt(t[1], 16), hi = parseInt(t[2], 16);
+        var span = Math.min(hi - lo, 65535);
+        if (t[3]) {
+          for (i = 0; i <= span; i++) map[lo + i] = hexToStr(incrementHex(t[3], i));
+        } else if (t[4]) {
+          var items = t[4].match(/<([0-9A-Fa-f]+)>/g) || [];
+          for (i = 0; i < items.length && i <= span; i++) map[lo + i] = hexToStr(items[i].slice(1, -1));
+        }
+      }
+    }
+    return { map: map, width: width };
+  }
+
+  /* ---------------- 字符串 ---------------- */
+  function unescapePdfString(raw) {
+    var out = "", i = 0;
+    while (i < raw.length) {
+      var c = raw[i];
+      if (c !== "\\") { out += c; i++; continue; }
+      var n = raw[i + 1];
+      if (n === "n") { out += "\n"; i += 2; }
+      else if (n === "r") { out += "\r"; i += 2; }
+      else if (n === "t") { out += "\t"; i += 2; }
+      else if (n === "b" || n === "f") { i += 2; }
+      else if (n >= "0" && n <= "7") {
+        var mo = raw.substr(i + 1, 3).match(/^[0-7]{1,3}/);
+        out += String.fromCharCode(parseInt(mo[0], 8));
+        i += 1 + mo[0].length;
+      } else if (n === "\n") { i += 2; }
+      else if (n === "\r") { i += 2; if (raw[i] === "\n") i++; }
+      else { out += n; i += 2; }
+    }
+    return out;
+  }
+
+  function decodeWithCmap(codes, cmap) {
+    if (!cmap || !cmap.map) return null;
+    var keys = 0; for (var k in cmap.map) { keys++; break; }
+    if (!keys) return null;
+    var out = "", w = cmap.width;
+    for (var i = 0; i < codes.length; i += w) {
+      var code = 0;
+      for (var j = 0; j < w; j++) code = (code << 8) | (codes[i + j] || 0);
+      var ch = cmap.map[code];
+      if (ch !== undefined) out += ch;
+    }
+    return out;
+  }
+
+  function codesFromLatin1(s) {
+    var a = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 0xff;
+    return a;
+  }
+
+  function decodeText(codes, cmap) {
+    if (!codes.length) return "";
+    var viaMap = decodeWithCmap(codes, cmap);
+    if (viaMap !== null && viaMap !== "") return viaMap;
+    // UTF-16BE BOM
+    if (codes.length >= 2 && codes[0] === 0xfe && codes[1] === 0xff) {
+      var s = "";
+      for (var i = 2; i + 1 < codes.length; i += 2) {
+        var c = (codes[i] << 8) | codes[i + 1];
+        if (c) s += String.fromCharCode(c);
+      }
+      return s;
+    }
+    // 兜底：Latin-1
+    var o = "";
+    for (var j = 0; j < codes.length; j++) o += String.fromCharCode(codes[j]);
+    return o;
+  }
+
+  function hexToBytes(hex) {
+    hex = hexClean(hex);
+    if (hex.length % 2) hex += "0";
+    var a = new Uint8Array(hex.length / 2);
+    for (var i = 0; i < a.length; i++) a[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return a;
+  }
+
+  /* ---------------- 过滤器链 ---------------- */
+  function ascii85Decode(u8) {
+    var s = bytesToLatin1(u8).replace(/\s+/g, "");
+    if (s.indexOf("<~") === 0) s = s.slice(2);
+    var end = s.indexOf("~>");
+    if (end >= 0) s = s.slice(0, end);
+    var out = [], group = [], n = 0;
+    for (var k = 0; k < s.length; k++) {
+      var ch = s[k];
+      if (ch === "z" && n === 0) { out.push(0, 0, 0, 0); continue; }
+      var v = s.charCodeAt(k) - 33;
+      if (v < 0 || v > 84) continue;
+      group.push(v); n++;
+      if (n === 5) {
+        var val = ((((group[0] * 85) + group[1]) * 85 + group[2]) * 85 + group[3]) * 85 + group[4];
+        out.push((val >>> 24) & 255, (val >>> 16) & 255, (val >>> 8) & 255, val & 255);
+        group = []; n = 0;
+      }
+    }
+    if (n > 0) {
+      var g = group.slice();
+      while (g.length < 5) g.push(84);
+      var v2 = ((((g[0] * 85) + g[1]) * 85 + g[2]) * 85 + g[3]) * 85 + g[4];
+      var bs = [(v2 >>> 24) & 255, (v2 >>> 16) & 255, (v2 >>> 8) & 255, v2 & 255];
+      for (var i = 0; i < n - 1; i++) out.push(bs[i]);
+    }
+    return new Uint8Array(out);
+  }
+
+  function asciiHexDecode(u8) {
+    var s = bytesToLatin1(u8).replace(/[^0-9A-Fa-f]/g, "");
+    if (s.length % 2) s += "0";
+    return hexToBytes(s);
+  }
+
+  function getFilters(dict) {
+    var arr = /\/Filter\s*\[([^\]]*)\]/.exec(dict);
+    var list = [];
+    if (arr) {
+      var found = arr[1].match(/\/[A-Za-z0-9]+/g) || [];
+      list = found.map(function (x) { return x.slice(1); });
+    } else {
+      var one = /\/Filter\s*\/([A-Za-z0-9]+)/.exec(dict);
+      if (one) list = [one[1]];
+    }
+    return list;
+  }
+
+  function decodeStream(raw, dict) {
+    var filters = getFilters(dict);
+    if (!filters.length) {
+      // 没有 Filter：少数文件裸存，尝试一次 inflate
+      return inflate(raw).then(function (u) { return u; });
+    }
+    var cur = Promise.resolve(new Uint8Array(raw));
+    filters.forEach(function (f) {
+      cur = cur.then(function (b) {
+        if (!b) return null;
+        if (/ASCII85/i.test(f)) return ascii85Decode(b);
+        if (/ASCIIHex/i.test(f)) return asciiHexDecode(b);
+        if (/Flate/i.test(f)) return inflate(b);
+        return null;
+      });
+    });
+    return cur;
+  }
+
+  /* ---------------- 主流程 ---------------- */
+  function extract(bytes) {
+    var latin1 = bytesToLatin1(bytes);
+
+    /* 1) 切对象 */
+    var objs = [], re = /(\d+)\s+(\d+)\s+obj\b/g, m;
+    while ((m = re.exec(latin1))) {
+      var num = +m[1], bodyStart = m.index + m[0].length;
+      var endIdx = latin1.indexOf("endobj", bodyStart);
+      if (endIdx < 0) break;
+      var chunk = latin1.slice(bodyStart, endIdx);
+      var dict = chunk, raw = null, sIdx = chunk.indexOf("stream");
+      if (sIdx >= 0) {
+        dict = chunk.slice(0, sIdx);
+        var dStart = bodyStart + sIdx + 6;
+        if (latin1[dStart] === "\r") dStart++;
+        if (latin1[dStart] === "\n") dStart++;
+        var eIdx = latin1.indexOf("endstream", dStart);
+        raw = bytes.subarray(dStart, eIdx >= 0 ? eIdx : endIdx);
+        while (raw.length && (raw[raw.length - 1] === 10 || raw[raw.length - 1] === 13)) {
+          raw = raw.subarray(0, raw.length - 1);
+        }
+      }
+      objs.push({ num: num, dict: dict, raw: raw, text: null });
+      re.lastIndex = endIdx;
+    }
+
+    /* 2) 解压 */
+    var tasks = objs.map(function (o) {
+      if (!o.raw) return Promise.resolve();
+      return decodeStream(o.raw, o.dict).then(function (u) {
+        if (u && u.length) o.text = bytesToLatin1(u);
+      });
+    });
+
+    return Promise.all(tasks).then(function () {
+      /* 3) ToUnicode */
+      var cmapByObj = {}, fontToUni = {}, cmapOfFont = {};
+      objs.forEach(function (o) {
+        var t = /\/ToUnicode\s+(\d+)\s+0\s+R/.exec(o.dict);
+        if (t) fontToUni[o.num] = +t[1];
+      });
+      objs.forEach(function (o) {
+        if (o.text && /beginbf(char|range)/.test(o.text)) cmapByObj[o.num] = parseCMap(o.text);
+      });
+      Object.keys(fontToUni).forEach(function (f) {
+        var cu = cmapByObj[fontToUni[f]];
+        if (cu) cmapOfFont[f] = cu;
+      });
+
+      /* 4) 资源名 → 字体对象（含 /Font 为间接引用的情形） */
+      var nameToFont = {};
+      var byNum = {};
+      objs.forEach(function (o) { byNum[o.num] = o; });
+      function harvestFontDict(text) {
+        var rp = /\/([A-Za-z0-9#+._-]+)\s+(\d+)\s+0\s+R/g, pp;
+        while ((pp = rp.exec(text))) nameToFont[pp[1]] = +pp[2];
+      }
+      objs.forEach(function (o) {
+        var fm = /\/Font\s*<<([\s\S]{0,8000}?)>>/g, mm;
+        while ((mm = fm.exec(o.dict))) harvestFontDict(mm[1]);
+        var im = /\/Font\s+(\d+)\s+0\s+R/g, mi;
+        while ((mi = im.exec(o.dict))) {
+          var fo = byNum[+mi[1]];
+          if (fo) harvestFontDict(fo.dict);
+        }
+      });
+
+      /* 5) 内容流（按操作符栈解析） */
+      var lines = [];
+      var tokenRe = /<<|>>|\/([A-Za-z0-9#+._-]*)|\(((?:\\[\s\S]|[^\\()])*)\)|<([0-9A-Fa-f\s]*)>|(-?\d*\.?\d+)|(\[|\])|([A-Za-z*'"]+)/g;
+      var IDENTITY_SETUP = function (content, acc) {
+        var ops = [], arr = null;
+        var curFont = null, line = "", prevY = null, curSize = 10;
+
+        function pushLine() {
+          var s = line.replace(/\s+/g, " ").trim();
+          if (s) acc.push(s);
+          line = "";
+        }
+        function emitStr(s) { line += s; }
+        function decodeOperand(o) {
+          if (o.t === "str") return decodeText(codesFromLatin1(o.v), curFont);
+          if (o.t === "hex") return decodeText(hexToBytes(o.v), curFont);
+          return "";
+        }
+        function lastStr() {
+          for (var i = ops.length - 1; i >= 0; i--) if (ops[i].t === "str" || ops[i].t === "hex") return ops[i];
+          return null;
+        }
+        function nums() { return ops.filter(function (o) { return o.t === "num"; }); }
+
+        var tk;
+        while ((tk = tokenRe.exec(content))) {
+          var whole = tk[0];
+          if (whole === "<<" || whole === ">>") { ops = []; continue; }
+          if (tk[1] !== undefined) { ops.push({ t: "name", v: tk[1] }); continue; }
+          if (tk[2] !== undefined) { (arr || ops).push({ t: "str", v: unescapePdfString(tk[2]) }); continue; }
+          if (tk[3] !== undefined) { (arr || ops).push({ t: "hex", v: tk[3] }); continue; }
+          if (tk[4] !== undefined) { (arr || ops).push({ t: "num", v: parseFloat(tk[4]) }); continue; }
+          if (tk[5] === "[") { arr = []; continue; }
+          if (tk[5] === "]") { if (arr) { ops.push({ t: "arr", v: arr }); arr = null; } continue; }
+
+          var op = tk[6];
+          if (!op) continue;
+
+          if (op === "Tf") {
+            var nm = null, sz = null;
+            for (var i = ops.length - 1; i >= 0; i--) {
+              if (ops[i].t === "name" && nm === null) nm = ops[i].v;
+              if (ops[i].t === "num" && sz === null) sz = ops[i].v;
+            }
+            if (sz && sz > 0) curSize = sz;
+            var fobj = nm !== null ? nameToFont[nm] : undefined;
+            curFont = (fobj !== undefined && cmapOfFont[fobj]) ? cmapOfFont[fobj] : null;
+          } else if (op === "Tj") {
+            var o1 = lastStr(); if (o1) emitStr(decodeOperand(o1));
+          } else if (op === "TJ") {
+            var oa = null;
+            for (var k = ops.length - 1; k >= 0; k--) if (ops[k].t === "arr") { oa = ops[k]; break; }
+            if (oa) oa.v.forEach(function (it) {
+              if (it.t === "str" || it.t === "hex") emitStr(decodeOperand(it));
+              else if (it.t === "num" && it.v < -300) emitStr(" ");
+            });
+          } else if (op === "'" || op === '"') {
+            pushLine();
+            var o2 = lastStr(); if (o2) emitStr(decodeOperand(o2));
+          } else if (op === "Td" || op === "TD") {
+            var ns = nums(), ty = ns.length >= 2 ? ns[ns.length - 1].v : 0;
+            var tx = ns.length >= 2 ? ns[ns.length - 2].v : 0;
+            if (Math.abs(ty) > Math.max(1, curSize * 0.5)) pushLine();
+          } else if (op === "Tm") {
+            var ms = nums(), y = ms.length >= 6 ? ms[5].v : null;
+            if (y !== null && prevY !== null && Math.abs(y - prevY) > Math.max(1, curSize * 0.5)) pushLine();
+            if (y !== null) prevY = y;
+          } else if (op === "T*") {
+            pushLine();
+          } else if (op === "BT") {
+            prevY = null;
+          } else if (op === "ET") {
+            /* 不换行：很多 PDF 按字形拆成多个 BT/ET，换行会把词切开 */
+          }
+          ops = [];
+        }
+        pushLine();
+      };
+
+      objs.forEach(function (o) {
+        if (!o.text) return;
+        if (!/\bBT\b/.test(o.text)) return;
+        if (!/(Tj|TJ)/.test(o.text)) return;
+        IDENTITY_SETUP(o.text, lines);
+      });
+
+      var text = lines.join("\n")
+        .replace(/[\u2E80-\u2FDF\uF900-\uFAFF]/g, function (ch) {
+          try { return ch.normalize("NFKC"); } catch (e) { return ch; }
+        })
+        .replace(/\u0000/g, "")
+        .replace(/\uFEFF/g, "")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      return text;
+    });
+  }
+
+  global.pdfExtractText = function (input) {
+    var b = input instanceof Uint8Array ? input : new Uint8Array(input);
+    if (bytesToLatin1(b.subarray(0, 8)).indexOf("%PDF") !== 0) {
+      return Promise.reject(new Error("不是有效的 PDF 文件"));
+    }
+    return extract(b);
+  };
+})(typeof window !== "undefined" ? window : globalThis);
+
+
+/* ---- 状态检查 ---- */
+async function checkApi(){
+  const hasKeyInBox=$("#apikey").value.trim();
+  state.backend=false;
+  try{
+    const r=await fetch("/health",{cache:"no-store"});
+    if(!r.ok) throw 0;
+    const j=await r.json();
+    if(j&&j.ok){state.backend=true;state.backendModel=j.model||"";}
+    else throw 0;
+  }catch(e){state.backend=false;}
+  $("#apidot").className="dot "+(hasKeyInBox?"ok":"bad");
+  if(!hasKeyInBox){
+    $("#apitext").textContent="请在上方填写你的 API Key 后即可生成";
+  }else if(state.backend){
+    $("#apitext").textContent="服务就绪 · "+(state.backendModel||"");
+  }else{
+    $("#apitext").textContent="浏览器直连模式 · 将直接请求你填写的接口";
+  }
+}
+
+/* ---- 生成 ---- */
+async function generate(){
+  const text=$("#prompt").value.trim();
+  if(!text){toast("请先输入要生成的内容");return;}
+  if(generating)return;
+  generating=true;setUiGenerating(true);
+  state.doctor=null;state.slides=[];state.current=0;renderStage();
+  resetCanvas();
+  $("#progressbar").classList.add("show");$("#progfill").style.width="6%";
+  $("#progcur").textContent="正在拆解内容…";$("#progsub").textContent="";
+
+  let acc="";
+  const pages=parseInt($("#pages").value)||0;
+  const apiKey=$("#apikey").value.trim();
+  if(!apiKey){toast("请先填写你的 API Key");return;}
+  let model=$("#model").value;
+  if(model==="__custom__"){
+    const cus=$("#model-custom");
+    model=cus?cus.value.trim():"";
+    if(!model){toast("请填写自定义模型名");return;}
+  }
+  const baseUrl=$("#baseUrl").value.trim();
+  const body={text,skill:state.skill,template:state.template,pages,
+    refText:state.refTexts.join("\n\n---\n\n"),
+    apiKey,baseUrl,model};
+  saveApiPrefs(apiKey,model,baseUrl);
+  try{
+    const res = state.backend
+      ? await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+      : directGenerate(body);
+    if(!res.ok){const j=await res.json().catch(()=>null);throw new Error((j&&j.error)||`服务器错误 ${res.status}`);}
+    const reader=res.body.getReader();const dec=new TextDecoder();
+    let buf="";
+    let finished=false;
+    while(!finished){const{value,done}=await reader.read();if(done){finished=true;break;}
+      buf+=dec.decode(value,{stream:true});
+      // 解析 SSE
+      let idx;
+      while((idx=buf.indexOf("\n\n"))!==-1&&!finished){const evt=buf.slice(0,idx);buf=buf.slice(idx+2);
+        const dataLine=evt.split("\n").find(l=>l.startsWith("data:"));
+        const evtName=(evt.split("\n").find(l=>l.startsWith("event:"))||"").slice(6).trim();
+        if(!dataLine)continue;
+        let payload;try{payload=JSON.parse(dataLine.slice(5).trim());}catch(e){continue;}
+        if(evtName==="chunk"){acc+=payload;parseStreaming(acc);}
+        else if(evtName==="done"){finished=true;break;}
+        else if(evtName==="error"){throw new Error(payload);}
+      }
+    }
+    // 结束后尝试解析完整结果
+    if(!state.doctor&&acc.trim()){try{parseStreaming(acc);}catch(e){}}
+    if(!state.doctor){toast("未解析到有效 PPT 结构，请重试或精简内容");}
+  }catch(e){
+    toast("生成失败："+e.message);
+    resetCanvas();
+  }
+  generating=false;setUiGenerating(false);
+  $("#progressbar").classList.remove("show");
+  if(state.doctor)persist();
+}
+
+function parseStreaming(raw){
+  // 提取并增量解析 JSON（容忍前后缀与未闭合）
+  const s=raw.trim();
+  const start=s.indexOf("{");if(start<0)return;
+  // 尝试直接完整解析
+  try{
+    const obj=JSON.parse(s.slice(start));
+    if(obj&&obj.slides&&Array.isArray(obj.slides)&&obj.slides.length){buildDeck(obj);return;}
+  }catch(e){}
+  // 未完成：尝试解析已经完好的 slides 前缀（按对象闭合位置）
+  try{if(!state.doctor)return;
+    const obj=JSON.parse(s.slice(start));
+    buildDeck(obj);
+  }catch(e){}
+}
+function buildDeck(doctor){
+  const created=!state.doctor;
+  const slides=(doctor.slides||[]).map(s=>({
+    title:s.title||"",layout:(s.layout||"bullets").toLowerCase(),note:s.note?String(s.note):"",
+    content:Array.isArray(s.content)?s.content.filter(x=>x!==null&&x!==undefined).map(x=>String(x)):(s.content?[String(s.content)]:[])
+  }));
+  if(!slides.length)return;
+  state.doctor={title:doctor.title||slides[0].title||"未命名",
+    subtitle:doctor.subtitle||"",slides};
+  state.slides=slides;
+  const n=slides.length;
+  const prog=Math.min(96,6+Math.round((state.doctor?1:0)*30)+Math.round(state.doctor.slides.length/n*50));
+  $("#progfill").style.width=prog+"%";
+  const cur=state.doctor.slides[Math.min(state.current,state.doctor.slides.length-1)];
+  $("#progcur").textContent=cur?("正在生成：第 "+(state.current+1)+" 页 · "+cur.title):"正在收尾…";
+  if(created||state.current>=n)state.current=0;
+  renderStage();
+}
+function transformDoctor(d){return{title:d.title||"",subtitle:d.subtitle||"",slides:d.slides||[]};}
+
+/* ---- 舞台渲染 ---- */
+function resetCanvas(){
+  $("#canvas").classList.add("empty");
+  $("#stagewrap").style.display="none";
+  $("#thumbs").style.display="none";
+  ["#btn-play","#btn-add","#btn-export-html","#btn-export-pptx"].forEach(s=>$(s).classList.add("hide"));
+}
+function renderStage(){
+  if(!state.doctor||!state.doctor.slides.length)return;
+  $("#canvas").classList.remove("empty");
+  $("#stagewrap").style.display="block";
+  $("#thumbs").style.display="flex";
+  ["#btn-play","#btn-add","#btn-export-html","#btn-export-pptx"].forEach(s=>$(s).classList.remove("hide"));
+  renderThumbs();
+  renderSlide();
+}
+function renderThumbs(){
+  $("#thumbs").innerHTML=state.slides.map((s,i)=>`<div class="thumb-btn ${i===state.current?"on":""}" data-i="${i}">
+    <div class="mini">${icons[ltype(s.layout)]||"•"}</div><div class="no">${i+1}</div></div>`).join("");
+  document.querySelectorAll(".thumb-btn").forEach(el=>el.onclick=()=>{state.current=+el.dataset.i;renderStage();});
+}
+const icons={cover:"⬟",closing:"✦",bullets:"☰",two_col:"▥",grid:"❐",kpi:"№",
+  timeline:"⊢",steps:"⇢",compare:"⇹",quote:"❝",table:"▤",zigzag:"≋",undefined:"•"};
+function ltype(l){return normLayout(l);}
+function renderSlide(){
+  const s=state.slides[state.current];
+  const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
+  $("#stage").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)}">
+    ${pageHTML(s,state.current,state.slides.length)}<span class="pno">${state.current+1} / ${state.slides.length}</span></div>`;
+  $("#stage").onclick=()=>openSheet(state.current);
+  scheduleFit();
+}
+/* 几何自检：内容溢出就逐级缩小字号（最多 6 档 ×5%），保证不压边、不溢出 */
+function scheduleFit(){
+  // rAF 在隐藏标签页/后台不触发，再补一个 setTimeout 兜底
+  try{requestAnimationFrame(autoFit);}catch(e){}
+  setTimeout(autoFit,60);
+}
+function autoFit(){
+  const pg=document.querySelector("#stage .page");
+  if(!pg)return;
+  pg.style.removeProperty("--k");
+  for(let i=0;i<6;i++){
+    if(pg.scrollHeight<=pg.clientHeight+1)break;
+    pg.style.setProperty("--k",(1-(i+1)*0.05).toFixed(2));
+  }
+}
+/* ---- 版式词表：必须与渲染分支严格一一对应（下方 checkRenderer 会自检） ---- */
+const LAYOUTS=["cover","closing","bullets","two_col","grid","kpi","timeline","steps","compare","quote","table","zigzag"];
+/* 渲染签名：用于启动自检，检测「AI 说要用、前端画不出」的静默降级 */
+const LAYOUT_SIG={cover:"ck",closing:"ct",bullets:"ulist",two_col:"twocol-body",grid:"lgrid",
+  kpi:"kpi-row",timeline:"tl-item",steps:"step-n",compare:"cmp-rule",quote:"qk",table:"tbl",zigzag:"zz-row"};
+
+function normLayout(l){
+  l=String(l||"bullets").toLowerCase().replace(/[-\s]+/g,"_");
+  const alias={title:"bullets",list:"bullets",list_with_rule:"bullets",card:"grid",cards:"grid",matrix:"grid",
+    twocol:"two_col",two_column:"two_col",hero:"kpi",hero_number:"kpi",number:"kpi",
+    flow:"steps",process:"steps",statement:"quote",big_quote:"quote",quote_page:"quote",timeline_page:"timeline"};
+  return alias[l]||l;
+}
+function splitPair(t){const a=String(t).split("|");return [a[0].trim(),a.slice(1).join("|").trim()];}
+
+function pageHTML(s,i,total){
+  const L=normLayout(s.layout);
+  if(L==="cover")return coverHTML(s);
+  if(L==="closing")return closingHTML(s);
+  const pts=(s.content||[]).map(t=>String(t)).filter(t=>t!=="");
+  const note=s.note?`<div class="pnote">${esc(s.note)}</div>`:"";
+  const head=`<div class="pt">${esc(s.title||"")}</div><div class="phr"></div>`;
+
+  if(L==="quote"){
+    const q=pts[0]||s.title||"";
+    const src=pts[1]||s.note||"";
+    return `<div class="qk">${esc(s.eyebrow||"一句话")}</div><div class="qt">${esc(q)}</div>${src?`<div class="qsrc">${esc(src)}</div>`:""}`;
+  }
+
+  let body="";
+  if(L==="kpi"){
+    body=`<div class="kpi-row">${pts.map(p=>{const[n,l]=splitPair(p);return `<div class="kpi-cell"><div class="kpi-num">${esc(n)}</div><div class="kpi-lab">${esc(l)}</div></div>`;}).join("")}</div>`;
+  }else if(L==="timeline"){
+    body=`<div class="tl">${pts.map(p=>{const[a,d]=splitPair(p);return `<div class="tl-item"><div class="tl-h">${esc(a)}</div><div class="tl-d">${esc(d)}</div></div>`;}).join("")}</div>`;
+  }else if(L==="steps"){
+    body=`<div class="steps">${pts.map((p,ii)=>{const[a,d]=splitPair(p);return `<div class="step"><div class="step-n">${String(ii+1).padStart(2,"0")}</div><div class="step-t">${esc(a)}</div><div class="step-d">${esc(d)}</div></div>`;}).join("")}</div>`;
+  }else if(L==="compare"){
+    const two=pts.slice(0,2).map(p=>{const[a,d]=splitPair(p);
+      const items=d.split(/[；;]/).map(x=>x.trim()).filter(Boolean);
+      return `<div class="cmp-col"><h4>${esc(a)}</h4>${items.map(x=>`<div class="cmp-item">${esc(x)}</div>`).join("")}</div>`;});
+    body=`<div class="cmp">${two[0]||""}<div class="cmp-rule"></div>${two[1]||""}</div>`;
+  }else if(L==="table"){
+    body=`<table class="tbl">${pts.map(p=>{const c=p.split("|").map(x=>x.trim());
+      return `<tr>${c.map(x=>`<td>${esc(x)}</td>`).join("")}</tr>`;}).join("")}</table>`;
+  }else if(L==="zigzag"){
+    body=`<div class="zz">${pts.map(p=>{const[a,d]=splitPair(p);return `<div class="zz-row"><div class="zz-h">${esc(a)}</div><div class="zz-d">${esc(d)}</div></div>`;}).join("")}</div>`;
+  }else if(L==="two_col"){
+    const mid=Math.max(1,Math.ceil(pts.length/2));
+    const c1=pts.slice(0,mid),c2=pts.slice(mid);
+    body=`<div class="twocol-body">
+      <div class="tc-col"><h4>${esc(c1[0]||"")}</h4><p>${c1.slice(1).map(esc).join("<br>")}</p></div>
+      <div class="tc-col"><h4>${esc(c2[0]||"")}</h4><p>${c2.slice(1).map(esc).join("<br>")}</p></div></div>`;
+  }else if(L==="grid"){
+    body=`<div class="lgrid">${pts.map((p,ii)=>`<div class="lcell"><div class="i">${String(ii+1).padStart(2,"0")}</div><p>${esc(p)}</p></div>`).join("")}</div>`;
+  }else{
+    body=`<ul class="ulist">${pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
+  }
+  return head+body+note;
+}
+function coverHTML(s){
+  const meta=(s.content||[]).map(t=>String(t)).filter(Boolean).join("　·　");
+  return `<div class="deco"></div>
+    <div class="ck">SPARK PPT</div>
+    <div class="ct">${esc(s.title||(state.doctor&&state.doctor.title)||"")}</div>
+    <div class="cb"></div>
+    <div class="cs">${esc(s.subtitle||(state.doctor&&state.doctor.subtitle)||"")}</div>
+    ${meta?`<div class="cm">${esc(meta)}</div>`:""}`;
+}
+function closingHTML(s){
+  const lines=(s.content||[]).map(t=>String(t)).filter(Boolean);
+  const nt=s.note?`<div class="cnote">${esc(s.note)}</div>`:"";
+  return `<div class="ct">${esc(s.title||"谢谢")}</div>
+    ${lines.length?`<div class="cs">${lines.map(esc).join("<br>")}</div>`:`<div class="cs">星星之火，可以燎原</div>`}${nt}`;
+}
+/* 渲染契约自检：词表里每个版式都必须真的画得出来 */
+function checkRenderer(){
+  const bad=[];
+  LAYOUTS.forEach(l=>{
+    let html="";
+    try{html=pageHTML({title:"测试",layout:l,content:["数字|标签","标题|说明；要点一；要点二"],note:"收束"},0,8);}catch(e){bad.push(l+"(异常)");return;}
+    const sig=LAYOUT_SIG[l];
+    if(sig&&html.indexOf(sig)<0){bad.push(l+"(未命中 "+sig+")");}
+  });
+  if(bad.length){console.error("[星火PPT] 渲染器缺版式：",bad.join("、"));
+    try{toast("⚠ 版式自检：未实现 "+bad.join("、"));}catch(e){}}
+  return bad;
+}
+
+/* ---- 编辑侧栏 ---- */
+function openSheet(i){
+  state.current=i;renderThumbs();renderSlide();
+  const s=state.slides[i];if(!s)return;
+  $("#s-title").value=s.title||"";
+  const ls=LAYOUTS, curL=normLayout(s.layout);
+  $("#s-layout").innerHTML=ls.map(l=>`<option value="${l}" ${l===curL?"selected":""}>${layoutName(l)}</option>`).join("");
+  $("#s-content").value=(s.content||[]).join("\n");
+  $("#s-note").value=s.note||"";
+  $("#sheet").classList.add("on");
+}
+function layoutName(l){return{cover:"封面",closing:"结尾页",bullets:"要点列表",two_col:"左右两栏",
+  grid:"并列条目",kpi:"大数字",timeline:"时间轴",steps:"流程步骤",compare:"左右对照",
+  quote:"金句页",table:"表格",zigzag:"交错排布"}[l]||l;}
+$("#s-close").onclick=()=>$("#sheet").classList.remove("on");
+$("#s-save").onclick=()=>{
+  const i=state.current;const s=state.slides[i];if(!s)return;
+  s.title=$("#s-title").value.trim();
+  s.layout=$("#s-layout").value;
+  s.content=$("#s-content").value.split("\n").map(t=>t.trim()).filter(x=>x);
+  s.note=($("#s-note")&&$("#s-note").value.trim())||"";
+  $("#sheet").classList.remove("on");renderSlide();renderThumbs();persist();toast("已保存");};
+
+/* ---- 页面操作 ---- */
+$("#btn-add").onclick=()=>{state.slides.push({title:"新页面",layout:"bullets",content:[""]});state.current=state.slides.length-1;renderStage();persist();};
+$("#btn-play").onclick=()=>openShow();
+function openShow(){
+  if(!state.doctor||!state.slides.length)return;
+  $("#overlay").classList.add("on");showSlide(0);
+}
+function showSlide(i){state.current=i;renderSlideInOverlay();}
+function renderSlideInOverlay(){
+  const s=state.slides[state.current];const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
+  $("#o-frame").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)}">${pageHTML(s,state.current,state.slides.length)}</div>`;
+  $("#o-cnt").textContent=(state.current+1)+" / "+state.slides.length;
+  setTimeout(()=>{
+    const pg=document.querySelector("#o-frame .page");
+    if(!pg)return;
+    pg.style.removeProperty("--k");
+    for(let i=0;i<6;i++){
+      if(pg.scrollHeight<=pg.clientHeight+1)break;
+      pg.style.setProperty("--k",(1-(i+1)*0.05).toFixed(2));
+    }
+  },60);
+}
+$("#o-close").onclick=()=>$("#overlay").classList.remove("on");
+$("#o-prev").onclick=()=>{if(state.current>0){state.current--;renderSlideInOverlay();}};
+$("#o-next").onclick=()=>{if(state.current<state.slides.length-1){state.current++;renderSlideInOverlay();}};
+document.addEventListener("keydown",e=>{
+  if(!$("#overlay").classList.contains("on"))return;
+  if(e.key==="ArrowRight"||e.key===" ")e.preventDefault(),$("#o-next").click();
+  else if(e.key==="ArrowLeft")e.preventDefault(),$("#o-prev").click();
+  else if(e.key==="Escape")$("#o-close").click();
+});
+
+/* ---- 导出 HTML ---- */
+$("#btn-export-html").onclick=()=>{
+  if(!state.doctor)return;
+  const css=buildExportCSS();
+  const body=state.slides.map((s,i)=>`<div class="page ${TPL.find(t=>t.id===state.template).cls} ${normLayout(s.layout)}" id="s${i}">${pageHTML(s,i,state.slides.length)}</div>`).join("\n");
+  const html=`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
+<title>${esc(state.doctor.title||"星火PPT")}</title>
+<style>${css}</style></head>
+<body>
+<div class="exp-bar"><div class="logo"><svg viewBox="0 0 32 32" width="18" height="18"><path d="M18 4l-9 13h7l-2 11 10-14h-7z" fill="#F2C66D"/></svg>${esc(state.doctor.title||"")}</div>
+<div class="nav"><button onclick="p(-1)">‹</button><span id="c">1/${state.slides.length}</span><button onclick="p(1)">›</button><button onclick="f()">⛶</button></div></div>
+<div class="stage">${body}</div>
+<script>
+var i=0,n=${state.slides.length};
+function p(d){i=(i+d+n)%n;show();}
+function f(){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}
+function show(){document.querySelectorAll('.page').forEach(function(e){e.classList.remove('on')});document.getElementById('s'+i).classList.add('on');document.getElementById('c').textContent=(i+1)+'/'+n;}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'||e.key===' ')p(1);if(e.key==='ArrowLeft')p(-1);if(e.key==='Escape')f();});
+show();
+</scr`+`ipt>
+</body></html>`;
+  download("星火PPT-"+safeName(state.doctor.title)+".html",html,"text/html");
+  toast("已导出独立 HTML");
+};
+function buildExportCSS(){
+  // 复用 App 自身的样式表，再叠加导出专用布局。
+  // 好处：以后新增任何版式，导出的独立 HTML 永远和页面里长得一模一样。
+  const st=document.querySelector("style");
+  const app=st?st.textContent:"";
+  return app+`
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;background:#05070f}
+.exp-bar{position:relative;z-index:10;display:flex;align-items:center;gap:14px;padding:12px 20px;
+  background:#0D1226;color:#ECEAF4;border-bottom:1px solid rgba(255,255,255,.12)}
+.exp-bar .logo{display:flex;align-items:center;gap:8px;font-family:var(--serif);font-weight:700;color:#FFD98A;font-size:15px}
+.exp-bar .nav{margin-left:auto;display:flex;gap:10px;align-items:center}
+.exp-bar button{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 14px;
+  border-radius:8px;cursor:pointer;font-size:15px;font-family:var(--sans)}
+.exp-bar #c{color:#B7BDDA;font-size:13px;font-family:var(--mono);align-self:center}
+.stage{position:relative;height:calc(100vh - 56px);max-width:none;aspect-ratio:auto;
+  border-radius:0;box-shadow:none;margin:0;overflow:hidden}
+.page{position:absolute;inset:0;display:none}
+.page.on{display:flex}
+`;
+}
+function safeName(s){return String(s||"ppt").replace(/[\\/:*?"<>|]/g,"").slice(0,40);}
+
+/* ---- 导出 .pptx ---- */
+$("#btn-export-pptx").onclick=()=>{
+  if(!state.doctor)return;
+  const spec={title:state.doctor.title,subtitle:state.doctor.subtitle,template:state.template,
+    slides:state.slides.map(s=>({title:s.title,layout:s.layout,content:s.content,note:s.note||""}))};
+  const pyScript=buildPptxScript(spec);
+  download("星火PPT-生成.py",pyScript,"text/x-python");
+  toast("已生成 .py 脚本，用本机 Python 运行即可导出 .pptx（pip install python-pptx）");
+};
+function buildPptxScript(spec){
+  // 生成一段 python-pptx 脚本：12 种版式 + 每页收束句，尽量与网页端一致
+  return `# -*- coding: utf-8 -*-
+# 由「星火PPT」生成的 .pptx 导出脚本
+# 运行： pip install python-pptx   然后   python 本文件.py
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+
+pres = Presentation()
+pres.slide_width = Inches(13.333)
+pres.slide_height = Inches(7.5)
+blank = pres.slide_layouts[6]
+
+TITLE = ${JSON.stringify(spec.title)}
+SUB = ${JSON.stringify(spec.subtitle)}
+TEMPLATE = ${JSON.stringify(spec.template)}
+
+PALETTES = {
+ "t1": {"bg":"0D1226","title":"FFD98A","text":"ECEAF4","accent":"F2C66D","muted":"B7BDDA","line":"2A3350"},
+ "t2": {"bg":"F7F8FC","title":"26335C","text":"4A5678","accent":"C2652E","muted":"6B7A9E","line":"DDE3F0"},
+ "t3": {"bg":"0F3D34","title":"EAFAF1","text":"CFE8DB","accent":"A8E0C2","muted":"B5DAC9","line":"2C6B5C"},
+ "t4": {"bg":"1A1A2E","title":"F2E6C4","text":"CFC8B0","accent":"D4AF55","muted":"B9AD8A","line":"3A3A5C"},
+ "t5": {"bg":"2A1B3D","title":"F2E8FF","text":"D9C8F2","accent":"C8A8F0","muted":"CBB8E8","line":"4A3468"},
+ "t6": {"bg":"0C2D48","title":"EAF6FF","text":"CFE6F5","accent":"9FD4FF","muted":"B8D8F2","line":"1E4A6B"},
+}
+THEME = PALETTES.get(TEMPLATE, PALETTES["t1"])
+
+def C(h):
+    return RGBColor.from_string(h)
+
+def bg(slide):
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = C(THEME["bg"])
+
+def add(slide, text, left, top, width, height, size=16, color="text", bold=False, align=PP_ALIGN.LEFT):
+    box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+    tf = box.text_frame
+    tf.word_wrap = True
+    tf.margin_left = 0; tf.margin_right = 0; tf.margin_top = 0; tf.margin_bottom = 0
+    p = tf.paragraphs[0]
+    p.text = str(text)
+    p.alignment = align
+    for r in p.runs:
+        r.font.size = Pt(size); r.font.bold = bold; r.font.color.rgb = C(THEME[color])
+    return box
+
+def paras(slide, items, left, top, width, height, size=15, color="text", gap=8, align=PP_ALIGN.LEFT, prefix=""):
+    box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+    tf = box.text_frame
+    tf.word_wrap = True
+    tf.margin_left = 0; tf.margin_right = 0; tf.margin_top = 0; tf.margin_bottom = 0
+    for i, it in enumerate(items):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.text = (prefix + str(it)) if prefix else str(it)
+        p.alignment = align
+        p.space_after = Pt(gap)
+        for r in p.runs:
+            r.font.size = Pt(size); r.font.color.rgb = C(THEME[color])
+    return box
+
+def rule(slide, left, top, width, color="accent", height=0.022):
+    sh = slide.shapes.add_shape(1, Inches(left), Inches(top), Inches(width), Inches(height))
+    sh.fill.solid(); sh.fill.fore_color.rgb = C(THEME[color]); sh.line.fill.background()
+    return sh
+
+def dot(slide, left, top, size=0.16):
+    sh = slide.shapes.add_shape(9, Inches(left), Inches(top), Inches(size), Inches(size))
+    sh.fill.solid(); sh.fill.fore_color.rgb = C(THEME["accent"]); sh.line.fill.background()
+    return sh
+
+def head(slide, title):
+    add(slide, title, 0.95, 0.58, 11.45, 1.2, 30, "title", True)
+    rule(slide, 0.95, 1.80, 0.62)
+    return 2.05
+
+def note(slide, text):
+    if not text:
+        return
+    rule(slide, 0.95, 6.34, 11.45, "line", 0.01)
+    add(slide, text, 0.95, 6.46, 10.6, 0.55, 11, "muted")
+
+def cover(slide, s):
+    bg(slide)
+    add(slide, "SPARK PPT", 1.0, 2.30, 11.3, 0.45, 13, "accent", False, PP_ALIGN.CENTER)
+    add(slide, s.get("title") or TITLE, 0.9, 2.80, 11.5, 1.35, 42, "title", True, PP_ALIGN.CENTER)
+    rule(slide, 6.37, 4.22, 0.6)
+    add(slide, s.get("subtitle") or SUB or "", 0.9, 4.46, 11.5, 0.85, 16, "muted", False, PP_ALIGN.CENTER)
+    meta = "    ·    ".join([str(x) for x in (s.get("content") or []) if x])
+    if meta:
+        add(slide, meta, 0.9, 5.50, 11.5, 0.5, 11, "muted", False, PP_ALIGN.CENTER)
+
+def closing(slide, s):
+    bg(slide)
+    add(slide, s.get("title") or "谢谢", 0.9, 2.45, 11.5, 1.2, 38, "title", True, PP_ALIGN.CENTER)
+    items = [str(x) for x in (s.get("content") or []) if x]
+    if items:
+        paras(slide, items, 1.6, 3.90, 10.1, 1.8, 15, "muted", 9, PP_ALIGN.CENTER)
+    note(slide, s.get("note"))
+
+def page_bullets(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    paras(slide, items, 0.95, top + 0.10, 10.9, 4.0, 17, "text", 11, prefix="▸  ")
+    note(slide, s.get("note"))
+
+def page_two_col(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    mid = max(1, (len(items) + 1) // 2)
+    cols = [(items[:mid], 0.95), (items[mid:], 6.95)]
+    for col, x in cols:
+        rule(slide, x, top + 0.10, 5.35)
+        if not col:
+            continue
+        add(slide, col[0], x, top + 0.24, 5.2, 0.55, 16, "title", True)
+        if len(col) > 1:
+            paras(slide, col[1:], x, top + 0.92, 5.2, 3.2, 14, "text", 8)
+    note(slide, s.get("note"))
+
+def page_grid(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    n = max(len(items), 1)
+    cols = 2 if n <= 4 else 3
+    cw = 11.45 / cols
+    for i, it in enumerate(items):
+        r, cc = divmod(i, cols)
+        x = 0.95 + cc * cw
+        y = top + 0.15 + r * 1.60
+        rule(slide, x, y, cw - 0.55)
+        add(slide, "%02d" % (i + 1), x, y + 0.12, cw - 0.55, 0.28, 10, "accent")
+        add(slide, it, x, y + 0.44, cw - 0.55, 1.02, 13, "text")
+    note(slide, s.get("note"))
+
+def page_kpi(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    n = max(len(items), 1)
+    cw = 11.45 / n
+    for i, it in enumerate(items):
+        num, _, lab = it.partition("|")
+        x = 0.95 + i * cw
+        rule(slide, x, top + 0.95, cw - 0.55)
+        add(slide, num.strip(), x, top + 1.20, cw - 0.55, 1.10, 40, "title", True)
+        add(slide, lab.strip(), x, top + 2.42, cw - 0.55, 0.85, 12, "muted")
+    note(slide, s.get("note"))
+
+def page_timeline(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    n = max(len(items), 1)
+    cw = 11.45 / n
+    y = top + 0.72
+    rule(slide, 1.02, y, 10.55, "accent", 0.012)
+    for i, it in enumerate(items):
+        stage, _, desc = it.partition("|")
+        x = 0.95 + i * cw
+        dot(slide, x, y - 0.07)
+        add(slide, stage.strip(), x, y + 0.30, cw - 0.38, 0.52, 14, "title", True)
+        add(slide, desc.strip(), x, y + 0.88, cw - 0.38, 2.2, 12, "text")
+    note(slide, s.get("note"))
+
+def page_steps(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    n = max(len(items), 1)
+    cw = 11.45 / n
+    for i, it in enumerate(items):
+        name, _, desc = it.partition("|")
+        x = 0.95 + i * cw
+        if i > 0:
+            rule(slide, x - 0.14, top + 0.05, 0.012, "line", 3.15)
+        add(slide, "%02d" % (i + 1), x, top + 0.08, cw - 0.4, 0.28, 10, "accent")
+        add(slide, name.strip(), x, top + 0.44, cw - 0.4, 0.6, 15, "title", True)
+        add(slide, desc.strip(), x, top + 1.14, cw - 0.4, 2.2, 12, "text")
+    note(slide, s.get("note"))
+
+def page_compare(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    pairs = []
+    for it in items[:2]:
+        header, _, body = it.partition("|")
+        parts = [x.strip() for x in body.replace(";", "；").split("；") if x.strip()]
+        pairs.append((header.strip(), parts))
+    for (header, parts), x in zip(pairs, [0.95, 6.95]):
+        rule(slide, x, top + 0.10, 5.35)
+        add(slide, header, x, top + 0.24, 5.2, 0.55, 17, "title", True)
+        if parts:
+            paras(slide, parts, x, top + 0.95, 5.2, 3.2, 14, "text", 9, prefix="· ")
+    note(slide, s.get("note"))
+
+def page_quote(slide, s):
+    bg(slide)
+    items = [str(x) for x in (s.get("content") or []) if x]
+    quote = items[0] if items else (s.get("title") or "")
+    src = items[1] if len(items) > 1 else (s.get("note") or "")
+    add(slide, "A WORD", 1.0, 1.95, 11.3, 0.4, 11, "accent", False, PP_ALIGN.CENTER)
+    add(slide, quote, 1.35, 2.55, 10.6, 2.3, 27, "title", True, PP_ALIGN.CENTER)
+    if src:
+        add(slide, src, 1.0, 5.20, 11.3, 0.6, 12, "muted", False, PP_ALIGN.CENTER)
+
+def page_table(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    xs = [0.95, 3.85, 7.75]
+    ws = [2.75, 3.75, 4.55]
+    for ri, row in enumerate(items[:6]):
+        cells = row.split("|")
+        y = top + 0.20 + ri * 0.72
+        rule(slide, 0.95, y + 0.52, 11.35, "line", 0.008)
+        for ci, cell in enumerate(cells[:3]):
+            add(slide, cell.strip(), xs[ci], y, ws[ci], 0.45, 13,
+                "title" if ci == 0 else "text", ci == 0)
+    note(slide, s.get("note"))
+
+def page_zigzag(slide, s):
+    bg(slide)
+    top = head(slide, s.get("title") or "")
+    items = [str(x) for x in (s.get("content") or []) if x]
+    n = max(len(items), 1)
+    h = 3.95 / n
+    for i, it in enumerate(items):
+        header, _, desc = it.partition("|")
+        y = top + 0.12 + i * h
+        rule(slide, 0.95, y + h - 0.10, 11.35, "line", 0.008)
+        if i % 2 == 0:
+            add(slide, header.strip(), 0.95, y + 0.08, 3.9, 0.5, 15, "title", True)
+            add(slide, desc.strip(), 5.15, y + 0.10, 7.1, h - 0.28, 12, "text")
+        else:
+            add(slide, desc.strip(), 0.95, y + 0.10, 7.1, h - 0.28, 12, "text")
+            add(slide, header.strip(), 7.95, y + 0.08, 4.35, 0.5, 15, "title", True, PP_ALIGN.RIGHT)
+    note(slide, s.get("note"))
+
+RENDER = {
+    "cover": cover,
+    "closing": closing,
+    "bullets": page_bullets,
+    "two_col": page_two_col,
+    "grid": page_grid,
+    "kpi": page_kpi,
+    "timeline": page_timeline,
+    "steps": page_steps,
+    "compare": page_compare,
+    "quote": page_quote,
+    "table": page_table,
+    "zigzag": page_zigzag,
+}
+ALIAS = {"cards": "grid", "title": "bullets", "card": "grid", "matrix": "grid",
+         "twocol": "two_col", "hero": "kpi", "hero_number": "kpi",
+         "flow": "steps", "process": "steps", "statement": "quote", "big_quote": "quote"}
+
+SLIDES = ${JSON.stringify(spec.slides)}
+for s in SLIDES:
+    slide = pres.slides.add_slide(blank)
+    lay = str(s.get("layout") or "bullets").lower()
+    lay = ALIAS.get(lay, lay)
+    fn = RENDER.get(lay, page_bullets)
+    fn(slide, s)
+
+out = "星火PPT-导出.pptx"
+pres.save(out)
+print("已导出：" + out + "，共 " + str(len(SLIDES)) + " 页")
+`;
+}
+
+/* ---- 历史 ---- */
+function persist(){
+  if(!state.doctor)return;
+  const recs=JSON.parse(localStorage.getItem(KEY)||"[]");
+  const entry={title:state.doctor.title,subtitle:state.doctor.subtitle,template:state.template,
+    slides:state.slides,ts:Date.now()};
+  const i=recs.findIndex(r=>r.ts===openTs);
+  if(i>=0)recs[i]=entry;else recs.unshift(entry);
+  if(recs.length>30)recs.length=30;
+  localStorage.setItem(KEY,JSON.stringify(recs));
+  renderHist();
+}
+let openTs=0;
+function renderHist(){
+  const recs=JSON.parse(localStorage.getItem(KEY)||"[]");
+  if(!recs.length){$("#hist").innerHTML="";return;}
+  $("#hist").innerHTML=`<div class="p-title">📚 <b>本机历史</b></div>`+recs.map((r,i)=>`
+    <div class="h-item"><div class="h-title">${esc(r.title||"未命名")}</div>
+    <div class="h-meta">${r.slides?r.slides.length:0}页 · ${new Date(r.ts).toLocaleString()}</div>
+    <div class="h-actions">
+      <button class="tbtn" data-load="${i}">打开</button>
+      <button class="tbtn danger" data-del="${i}">删</button>
+    </div></div>`).join("");
+  document.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>{
+    openHistory(+b.dataset.load);});
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    const recs2=JSON.parse(localStorage.getItem(KEY)||"[]");recs2.splice(+b.dataset.del,1);
+    localStorage.setItem(KEY,JSON.stringify(recs2));renderHist();});
+}
+function openHistory(i){
+  const recs=JSON.parse(localStorage.getItem(KEY)||"[]");const r=recs[i];if(!r)return;
+  state.doctor={title:r.title,subtitle:r.subtitle};state.slides=r.slides;state.template=r.template||"t1";
+  openTs=r.ts;renderTpls();state.current=0;renderStage();persist();
+}
+
+function setUiGenerating(on){
+  const b=$("#genbtn");
+  b.disabled=on;
+  b.innerHTML=on?`<span class="spin"></span> 生成中…`:`✦ 生成 PPT`;
+}
+
+function download(name,content,type){
+  const blob=new Blob([content],{type:type||"text/plain;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},100);
+}
+
+/* ---- 模型 & API Key 个性化设置 ---- */
+const KEY_API="xinghuoPPT_apipref";
+function saveApiPrefs(apiKey,model,baseUrl){
+  try{
+    localStorage.setItem(KEY_API,JSON.stringify({apiKey,model,baseUrl,ts:Date.now()}));
+  }catch(e){}
+}
+function loadApiPrefs(){
+  try{return JSON.parse(localStorage.getItem(KEY_API)||"null");}catch(e){return null;}
+}
+function initApiPrefs(){
+  const p=$("#model");
+  p.addEventListener("change",()=>{if(p.value==="__custom__")showCustomModel(true);else showCustomModel(false);});
+  const pref=loadApiPrefs();
+  if(pref){
+    if(pref.apiKey)$("#apikey").value=pref.apiKey;
+    if(pref.model&&!["deepseek-chat","deepseek-v4-pro","gpt-4o-mini","qwen-plus","glm-4-flash"].includes(pref.model)){
+      $("#model").value="__custom__";showCustomModel(true);
+      const cus=$("#model-custom");if(cus)cus.value=pref.model;
+    }else if(pref.model){$("#model").value=pref.model;}
+    if(pref.baseUrl)$("#baseUrl").value=pref.baseUrl;
+  }
+}
+function showCustomModel(show){
+  let box=$("#model-custom");
+  if(show&&!box){
+    box=document.createElement("input");
+    box.id="model-custom";box.placeholder="例如 my-model / 组织提供的专属模型";
+    box.style.cssText="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:9px 11px;font-size:13px;margin-top:8px";
+    $("#model").parentNode.insertAdjacentElement("afterend",box);
+  }
+  if(box)box.style.display=show?"block":"none";
+}
+
+renderSkills();renderTpls();checkApi();renderHist();initApiPrefs();checkRenderer();
+</script>
+</body>
+</html>
