@@ -356,7 +356,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <input id="baseUrl" class="ipt" placeholder="https://api.deepseek.com/v1">
       <div class="label">API Key（必填，由你提供）</div>
       <input id="apikey" type="password" class="ipt" placeholder="粘贴你的 API Key…">
-      <div class="api-note">🔒 Key 只保存在本机，仅用于本次生成请求，绝不上传其他服务器。</div>
+      <div class="api-note">🔒 Key 只留在你当前这个标签页里，<b>关闭页面即清除</b>，绝不上传任何服务器。公用电脑上用完请关掉标签页。</div>
       <details class="keyguide">
         <summary>没有 Key？点这里看怎么申请（约 3 分钟）</summary>
         <div class="kg-body">
@@ -432,6 +432,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
           <li><b>纯前端网页版</b>：同一份页面会自动判断环境——有后端就走后端，没有就在浏览器里直接请求接口。因此它现在是<b>一个可以丢到 GitHub Pages / Netlify 的单文件</b>，不再必须开服务器。</li>
           <li><b>PDF 支持（自己写的解析器）</b>：不引任何第三方库，直接解 FlateDecode / ASCII85 压缩流与 ToUnicode 字表，中文能正常还原。已用四份真实中文 PDF 验证（实验报告 / 选课通知 / 数学习题 / 规章制度）。顺手修掉了旧后端「把 PDF 字节当文本读」的假解析。</li>
           <li><b>提示更清楚</b>：扫描件（图片型 PDF）提取不到文字时会明确告知，不会静默失败。</li>
+          <li><b>Key 保留方式改正</b>：以前填过的 Key 会被浏览器长期记住、下次打开自动填回。现在改为<b>只在当前标签页内有效，关闭页面即清除</b>——公用电脑上不会把上一个人的 Key 留给下一个人。</li>
           <li><b>「如何获取 API Key」四步指南</b>：直接内置在页面上，用户不用去别处找；并说明 Key 只在本机、不上传。</li>
         </ul>
         <div class="logver">V1.1 — 排版内核重做</div>
@@ -451,7 +452,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
         <div class="logdate">2026-10-24</div>
         <ul class="loglist">
           <li><b>星火PPT 上线</b>：星火三部曲第三部正式诞生——把长文案化为一份逐页可编辑、可放映、可导出的演示文稿，与「星火续火花」「星火专注 Pro」共成燎原之势。</li>
-          <li><b>API Key 由你自填</b>：模型、接口、Key 全在页面左侧自行配置，选好模型、粘贴自己的 Key 即可生成；Key 本机保存、仅用于本次请求，不落盘、不进日志。</li>
+          <li><b>API Key 由你自填</b>：模型、接口、Key 全在页面左侧自行配置，选好模型、粘贴自己的 Key 即可生成；Key 只留在当前标签页、关闭即清除，不写磁盘、不进日志。</li>
           <li><b>界面复刻星火专注 Pro 气质</b>：居中鎏金衬线大标题、诗句「星星之火，可以燎原」、深邃夜空蓝 + 玻璃卡片 + 金色描边。</li>
           <li><b>流式逐页生成</b>：6 套模板 × 6 大方向，AI 把内容现场拆成封面 / 要点 / 双列 / 卡片 / 封底，边生成边见效果。</li>
           <li><b>两种导出</b>：独立 HTML（自带放映器）或 python-pptx 脚本一键成真 .pptx。</li>
@@ -1807,14 +1808,25 @@ function download(name,content,type){
 }
 
 /* ---- 模型 & API Key 个性化设置 ---- */
-const KEY_API="xinghuoPPT_apipref";
+const KEY_API="xinghuoPPT_apipref";        /* 模型 / 接口地址，不含 Key */
+const KEY_APIKEY="xinghuoPPT_apikey_tmp";  /* Key 只放 sessionStorage，关标签页即清除 */
 function saveApiPrefs(apiKey,model,baseUrl){
   try{
-    localStorage.setItem(KEY_API,JSON.stringify({apiKey,model,baseUrl,ts:Date.now()}));
+    localStorage.setItem(KEY_API,JSON.stringify({model,baseUrl,ts:Date.now()}));
+  }catch(e){}
+  try{
+    if(apiKey) sessionStorage.setItem(KEY_APIKEY,apiKey);
+    else sessionStorage.removeItem(KEY_APIKEY);
   }catch(e){}
 }
 function loadApiPrefs(){
-  try{return JSON.parse(localStorage.getItem(KEY_API)||"null");}catch(e){return null;}
+  let pref={};
+  try{pref=JSON.parse(localStorage.getItem(KEY_API)||"null")||{};}catch(e){pref={};}
+  try{
+    const k=sessionStorage.getItem(KEY_APIKEY);
+    if(k) pref.apiKey=k;
+  }catch(e){}
+  return (pref.apiKey||pref.model||pref.baseUrl)?pref:null;
 }
 function initApiPrefs(){
   const p=$("#model");
