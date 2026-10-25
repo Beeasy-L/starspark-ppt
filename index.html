@@ -86,7 +86,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .skill.on .d{color:var(--ink2)}
 
 /* 模板 */
-.tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .tpl-pick{border:2px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:.18s;background:var(--panel2)}
 .tpl-pick.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-deep)}
 .tpl-pick .sw{height:48px;display:block}
@@ -200,6 +200,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .enh-foot{display:flex;align-items:center;gap:10px;margin-top:14px}
 .enh-sp{flex:1}
 
+.page .poem-foot{position:absolute;right:22px;bottom:34px;font-family:var(--serif);
+  font-size:1.32cqw;color:var(--tsub);opacity:.62;letter-spacing:.14em;max-width:46%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page .poem-cov{margin-top:20px;font-family:var(--serif);font-size:1.55cqw;color:var(--tsub);
+  letter-spacing:.16em;opacity:.85;text-align:center}
+.page .poem-bk{margin-top:16px;font-family:var(--serif);font-size:1.55cqw;color:var(--tsub);
+  letter-spacing:.16em;opacity:.85;text-align:center;max-width:74%;line-height:1.7}
+.page .poem-src{display:block;font-size:.9cqw;letter-spacing:.1em;opacity:.6;margin-top:.5em}
 .page .pno{position:absolute;right:22px;bottom:14px;font-size:calc(1.447cqw * var(--k,1));color:var(--tsub);opacity:.45;letter-spacing:1px;font-family:var(--mono)}
 .page .pt{font-family:var(--serif);font-size:var(--ts-title);color:var(--th);font-weight:700;line-height:1.34;margin-bottom:8px;max-width:88%}
 .page .phr{width:40px;height:2px;background:linear-gradient(90deg,var(--tk),transparent);margin:10px 0 0;flex:none}
@@ -232,6 +240,10 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 /* two_col 两栏（细线，非卡片） */
 .twocol-body{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:18px;flex:1;align-content:start}
 .tc-col{border-top:2px solid var(--tk);padding-top:1.842cqw;background:none}
+.tc-item{display:flex;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--tborder);line-height:1.75;font-size:13.5px}
+.tc-item:last-child{border-bottom:none}
+.tc-item b{color:var(--th);font-weight:700;flex:0 0 auto;max-width:46%;font-family:var(--tf-title,inherit)}
+.tc-item span{color:var(--tp);flex:1;min-width:0}
 .tc-col h4{font-size:calc(2.105cqw * var(--k,1));color:var(--th);margin-bottom:10px;font-family:var(--serif);font-weight:700}
 .tc-col p{font-size:var(--ts-body);color:var(--tp);line-height:1.8}
 
@@ -344,6 +356,254 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   .cards-grid{grid-template-columns:1fr 1fr;gap:10px}
   .sheet{width:100%;right:-100%}
 }
+
+/* ============ 扩展模板 t7–t12（含 39 个等同现状的默认变量） ============ */
+/* ============================================================================
+   星火PPT · 扩展视觉模板 t7–t12
+   ----------------------------------------------------------------------------
+   用途：整段追加到 static/index.html 的 <style> 末尾（或作为 <link> 放在其后）。
+   铁律：本文件不改 index.html；所有新变量都带"等同现状"的默认值兜底。
+
+   【顺序无关】本文件所有会覆盖原样的规则都用 .page.page 双类加固
+   （特异性 0,3,0 > 原 .page .pt 的 0,2,0），所以无论你把这段粘在原样式
+   之前还是之后，结果都一样；而默认值又与原样式逐像素一致，故 t1–t6 不受影响。
+
+   【形状怎么切】CSS 没有 if(var()) 分支，无法用 --mk-shape 直接 switch。
+   所以：--mk-shape 只作"声明位"（给 JS/UI/文档读），真正的形状由一组
+   几何变量 --mk-w/--mk-h/--mk-radius/--mk-top/--mk-content/… 驱动，
+   t7–t12 各自把几何变量写好了。想手动切换形状，给 .page 加工具类
+   .mk-dot / .mk-dash / .mk-square / .mk-num / .mk-none 即可。
+   ========================================================================== */
+
+/* ==========================================================================
+   一、扩展变量兜底（默认值 == 现有 t1–t6 的真实表现）
+   ========================================================================== */
+.page{
+  /* 1) 标题字体 / 字重 / 字距 */
+  --tf-title:var(--serif);      /* 标题字族，默认 == 原 .page .pt 的 var(--serif) */
+  --tf-hero:var(--serif);       /* 大数字字族，默认 == 原 .kpi-num 的 var(--serif) */
+  --fw-title:700;               /* 标题字重，默认 == 原 .pt/.tl-h/.step-t/h4 的 700 */
+  --fw-hero:900;                /* 主视觉（封面/封底/大数字）字重，默认 == 原 900 */
+  --ls-title:normal;            /* 标题字距，默认 normal == 原样（原 .pt 无 letter-spacing） */
+
+  /* 2) 列表标记（默认几何 == 原 .ulist li::before 的 7×7 无圆角方块） */
+  --mk-shape:square;            /* 声明位：dot|dash|square|num|none */
+  --mk-w:7px;                   /* 原 7px */
+  --mk-h:7px;                   /* 原 7px */
+  --mk-radius:0;                /* 原无 border-radius（所以默认形状是 square 不是 dot） */
+  --mk-top:9px;                 /* 原 top:9px */
+  --mk-bg:var(--tk);            /* 原 background:var(--tk) */
+  --mk-op:.85;                  /* 原 opacity:.85 */
+  --mk-display:block;
+  --mk-content:"";              /* 原 content:"" */
+  --mk-fg:var(--tk);            /* 标记文字色（仅 num/字形标记用） */
+  --mk-fs:inherit;
+  --mk-fw:400;
+  --mk-fam:var(--sans);
+  --mk-lh:normal;
+  --mk-ls:normal;
+  --li-pad:2.895cqw;            /* 原 .ulist li padding-left:2.895cqw */
+
+  /* compare 对照项圆点（原 6×6 / opacity .8，与 ulist 分开兜底以免改到现状） */
+  --mk2-w:6px;
+  --mk2-h:6px;
+  --mk2-op:.8;
+
+  /* 3) 时间轴 */
+  --tl-radius:50%;              /* 原 .tl-item::before 是圆形 */
+  --tl-halo:rgba(255,255,255,.07); /* 原 box-shadow 光圈（浅底模板可改深色） */
+
+  /* 4) 版式细线（lcell/tc-col/kpi-cell/cmp-col 的 2px solid var(--tk)） */
+  --rule-w:2px;
+  --rule-c:var(--tk);
+  --rule-style:solid;
+
+  /* 5) 装饰（默认 == 原 .phr / .cover .cb / .pnote 顶线） */
+  --deco-style:rule;            /* 声明位：none|rule|block|hairline */
+  --deco-w:40px;                /* 原 .phr width:40px */
+  --deco-h:2px;                 /* 原 .phr height:2px */
+  --deco-bg:linear-gradient(90deg,var(--tk),transparent); /* 原样 */
+  --deco-r:0;
+  --deco-cbw:46px;              /* 原 .cover .cb width:46px */
+  --deco-cbh:3px;               /* 原 height:3px */
+  --deco-cbbg:linear-gradient(90deg,var(--tk),transparent);
+  --deco-foot:1px solid var(--tborder); /* 原 .pnote/.cnote border-top */
+
+  /* 6) 页码 */
+  --pno-op:.45;                 /* 原 .pno opacity:.45 */
+}
+
+/* ---- 排版：标题字族/字重/字距（默认与原规则完全等价）---- */
+.page.page .pt{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .tc-col h4{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .cmp-col h4{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .tl-h{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .step-t{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .zz-h{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .quote .qt{font-family:var(--tf-title);font-weight:var(--fw-title);letter-spacing:var(--ls-title)}
+.page.page .closing .ct{font-family:var(--tf-title);font-weight:var(--fw-hero);letter-spacing:var(--ls-title)}
+.page.page .cover .ct{font-family:var(--tf-title);font-weight:var(--fw-hero)} /* 保留原 letter-spacing:1px */
+.page.page .kpi-num{font-family:var(--tf-hero);font-weight:var(--fw-hero)}    /* 保留原 letter-spacing:-.5px */
+
+/* ---- 列表标记：几何全变量驱动 ---- */
+.page.page .ulist{counter-reset:xh-mk}
+.page.page .ulist li{padding-left:var(--li-pad);counter-increment:xh-mk}
+.page.page .ulist li::before{
+  content:var(--mk-content);
+  display:var(--mk-display);
+  position:absolute;left:2px;top:var(--mk-top);
+  width:var(--mk-w);height:var(--mk-h);
+  background:var(--mk-bg);opacity:var(--mk-op);border-radius:var(--mk-radius);
+  color:var(--mk-fg);font-family:var(--mk-fam);font-weight:var(--mk-fw);
+  font-size:var(--mk-fs);line-height:var(--mk-lh);letter-spacing:var(--mk-ls)
+}
+.page.page .cmp-col .cmp-item::before{
+  width:var(--mk2-w);height:var(--mk2-h);opacity:var(--mk2-op);
+  background:var(--mk-bg);border-radius:var(--mk-radius)
+}
+
+/* ---- 细线版式：线宽/线色可换（默认 2px solid var(--tk)）---- */
+.page.page .tc-col,.page.page .lcell,.page.page .kpi-cell,.page.page .cmp-col{
+  border-top-width:var(--rule-w);border-top-color:var(--rule-c);border-top-style:var(--rule-style)
+}
+
+/* ---- 时间轴圆点 ---- */
+.page.page .tl-item::before{border-radius:var(--tl-radius);box-shadow:0 0 0 4px var(--tl-halo)}
+
+/* ---- 装饰 ---- */
+.page.page .phr{
+  width:var(--deco-w);height:var(--deco-h);background:var(--deco-bg);border-radius:var(--deco-r)
+}
+.page.page.cover .cb{
+  width:var(--deco-cbw);height:var(--deco-cbh);background:var(--deco-cbbg);border-radius:var(--deco-r)
+}
+.page.page .pnote{border-top:var(--deco-foot)}
+.page.page.closing .cnote{border-top:var(--deco-foot)}
+
+/* ---- 页码 ---- */
+.page.page .pno{opacity:var(--pno-op)}
+
+/* ==========================================================================
+   二、工具类（可选，手动切换形状/装饰用；放在主题之后，显式 opt-in 优先）
+   ========================================================================== */
+.page.mk-square{--mk-shape:square;--mk-w:7px;--mk-h:7px;--mk-radius:0;--mk-top:9px;--mk-bg:var(--tk);--mk-op:.85;--mk-content:"";--mk-display:block;--li-pad:2.895cqw}
+.page.mk-dot   {--mk-shape:dot;--mk-w:8px;--mk-h:8px;--mk-radius:999px;--mk-top:9px;--mk-bg:var(--tk);--mk-op:.9;--mk-content:"";--mk-display:block;--li-pad:3.1cqw}
+.page.mk-dash  {--mk-shape:dash;--mk-w:13px;--mk-h:2px;--mk-radius:0;--mk-top:13px;--mk-bg:var(--tk);--mk-op:.9;--mk-content:"";--mk-display:block;--li-pad:3.4cqw}
+.page.mk-num   {--mk-shape:num;--mk-w:auto;--mk-h:auto;--mk-bg:transparent;--mk-op:1;--mk-top:0;
+  --mk-content:counter(xh-mk,decimal-leading-zero) ".";--mk-fg:var(--tk);--mk-fs:1.447cqw;--mk-lh:3.4545cqw;
+  --mk-fw:700;--mk-fam:var(--mono);--mk-ls:.5px;--li-pad:4.6cqw}
+.page.mk-none  {--mk-shape:none;--mk-display:none;--li-pad:0}
+
+.page.deco-rule    {--deco-style:rule;--deco-w:40px;--deco-h:2px;--deco-r:0;--deco-bg:linear-gradient(90deg,var(--tk),transparent);--deco-cbw:46px;--deco-cbh:3px;--deco-cbbg:linear-gradient(90deg,var(--tk),transparent);--deco-foot:1px solid var(--tborder)}
+.page.deco-hairline{--deco-style:hairline;--deco-w:100%;--deco-h:1px;--deco-r:0;--deco-bg:var(--tborder);--deco-cbw:64px;--deco-cbh:1px;--deco-cbbg:var(--tborder);--deco-foot:1px solid var(--tborder)}
+.page.deco-block   {--deco-style:block;--deco-w:30px;--deco-h:6px;--deco-r:0;--deco-bg:var(--tk);--deco-cbw:40px;--deco-cbh:6px;--deco-cbbg:var(--tk);--deco-foot:2px solid var(--tk)}
+.page.deco-none    {--deco-style:none;--deco-w:0;--deco-h:0;--deco-bg:transparent;--deco-cbw:0;--deco-cbh:0;--deco-cbbg:transparent;--deco-foot:none}
+
+/* ==========================================================================
+   三、六套新模板 t7–t12
+   ========================================================================== */
+
+/* ---------- t7 深蓝图谱：极简工程感 / 无衬线标题 / 发丝分隔线 / 冷白文字 ---------- */
+.theme-t7{
+  --tk:#5B9BFF;--th:#EAF2FF;--tsub:#93A6C6;--tcard:rgba(91,155,255,.06);
+  --tborder:rgba(147,166,198,.22);--tp:#C9D6EA;--tcardh:#5B9BFF;
+  --bg:linear-gradient(160deg,#0B1428,#13244E 55%,#0A1224);--deco:#5B9BFF;
+  --tf-title:var(--sans);--fw-title:700;--ls-title:2px;   /* 无衬线 + 宽字距 = 工程图 */
+  --mk-shape:dash;--mk-w:14px;--mk-h:1px;--mk-radius:0;--mk-top:14px;--mk-op:.8;--li-pad:3.4cqw;
+  --mk2-w:12px;--mk2-h:1px;
+  --tl-radius:0;--rule-w:1px;
+  --deco-style:hairline;--deco-w:100%;--deco-h:1px;--deco-r:0;
+  --deco-bg:linear-gradient(90deg,rgba(91,155,255,.6),rgba(91,155,255,0) 72%);
+  --deco-cbw:72px;--deco-cbh:1px;--deco-cbbg:linear-gradient(90deg,rgba(91,155,255,.6),rgba(91,155,255,0));
+}
+
+/* ---------- t8 墨绿咨询：深墨绿 + 米白衬线 / 稳重 / 方形标记 ---------- */
+.theme-t8{
+  --tk:#D3A857;--th:#F4EBD8;--tsub:#A9BCA8;--tcard:rgba(244,235,216,.05);
+  --tborder:rgba(169,188,168,.22);--tp:#D8E0D2;--tcardh:#D3A857;
+  --bg:linear-gradient(165deg,#0B211C,#123830 58%,#0A1D19);--deco:#D3A857;
+  --tf-title:var(--serif);--fw-title:700;--ls-title:.5px;  /* 衬线 + 微字距 = 咨询稳重 */
+  --mk-shape:square;--mk-w:8px;--mk-h:8px;--mk-radius:0;--mk-top:9px;--mk-op:.95;--li-pad:3.1cqw;
+  --mk2-w:7px;--mk2-h:7px;--mk2-op:.9;
+  --tl-radius:0;--rule-w:2px;
+  --deco-style:rule;--deco-w:64px;--deco-h:2px;--deco-r:0;
+  --deco-bg:linear-gradient(90deg,var(--tk),rgba(211,168,87,0));
+  --deco-cbw:52px;--deco-cbh:2px;--deco-cbbg:linear-gradient(90deg,var(--tk),rgba(211,168,87,0));
+}
+
+/* ---------- t9 米白学术：浅底纸感 / 宋体标题 / 黑正文 / 朱红点缀 / 编号列表 ---------- */
+.theme-t9{
+  --tk:#A8322A;--th:#1E1B16;--tsub:#5F584A;--tcard:#FFFFFF;
+  --tborder:rgba(30,27,22,.16);--tp:#33302A;--tcardh:#A8322A;
+  --bg:linear-gradient(170deg,#FBF9F3,#F4F0E5 68%,#EEE8DA);--deco:#A8322A;
+  --tf-title:var(--serif);--fw-title:700;--ls-title:1px;
+  --mk-shape:num;                                          /* 论文式编号 01. 02. */
+  --mk-w:auto;--mk-h:auto;--mk-bg:transparent;--mk-op:1;--mk-top:0;
+  --mk-content:counter(xh-mk,decimal-leading-zero) ".";
+  --mk-fg:var(--tk);--mk-fs:1.447cqw;--mk-lh:3.4545cqw;--mk-fw:700;--mk-fam:var(--mono);--mk-ls:.5px;
+  --li-pad:4.8cqw;
+  --mk2-w:6px;--mk2-h:6px;--mk2-op:1;
+  --tl-radius:0;--tl-halo:rgba(30,27,22,.08);--rule-w:1px;
+  --deco-style:hairline;--deco-w:100%;--deco-h:1px;--deco-r:0;--deco-bg:var(--tborder);
+  --deco-cbw:56px;--deco-cbh:1px;--deco-cbbg:var(--tk);--pno-op:.6;
+}
+
+/* ---------- t10 黑金财报：近黑底 + 香槟金 / 数字与标题特粗 / 无标记 ---------- */
+.theme-t10{
+  --tk:#C9A44C;--th:#EFDCA4;--tsub:#A79C82;--tcard:rgba(201,164,76,.07);
+  --tborder:rgba(201,164,76,.26);--tp:#DDD7C9;--tcardh:#C9A44C;
+  --bg:linear-gradient(160deg,#08080A,#141417 58%,#0A0A0C);--deco:#C9A44C;
+  --tf-title:var(--sans);--fw-title:900;--ls-title:2.5px;  /* 特粗 + 宽字距 = 年报 */
+  --tf-hero:var(--sans);--fw-hero:900;
+  --mk-shape:none;--mk-display:none;--li-pad:0;            /* 纯排版，无标记 */
+  --tl-radius:0;--rule-w:3px;
+  --deco-style:block;--deco-w:56px;--deco-h:8px;--deco-r:0;--deco-bg:var(--tk);
+  --deco-cbw:64px;--deco-cbh:8px;--deco-cbbg:var(--tk);
+  --deco-foot:2px solid var(--tk);
+}
+
+/* ---------- t11 靛青企划：中蓝灰调 / 现代无衬线 / 圆点圆角 = 圆润 ---------- */
+.theme-t11{
+  --tk:#9BEDE4;--th:#F5F9FF;--tsub:#D2DEEC;--tcard:rgba(255,255,255,.08);
+  --tborder:rgba(255,255,255,.20);--tp:#EDF3FB;--tcardh:#9BEDE4;
+  --bg:linear-gradient(150deg,#3B4A66,#4B5E82 55%,#303C55);--deco:#9BEDE4;
+  --tf-title:var(--sans);--fw-title:700;--ls-title:.2px;   /* 无衬线 + 紧字距 = 现代产品 */
+  --mk-shape:dot;--mk-w:9px;--mk-h:9px;--mk-radius:999px;--mk-top:10px;--mk-op:.95;--li-pad:3.2cqw;
+  --mk2-w:8px;--mk2-h:8px;--mk2-op:.95;
+  --tl-radius:999px;--rule-w:3px;
+  --deco-style:block;--deco-w:48px;--deco-h:9px;--deco-r:999px;--deco-bg:var(--tk);
+  --deco-cbw:56px;--deco-cbh:9px;--deco-cbbg:var(--tk);
+}
+
+/* ---------- t12 暖砂手记：浅米黄底 + 棕墨字 / 楷体手账笔触 / 虚线收束 ---------- */
+.theme-t12{
+  --tk:#7F4620;--th:#4A3628;--tsub:#66503A;--tcard:rgba(255,255,255,.5);
+  --tborder:rgba(90,66,48,.26);--tp:#5B4636;--tcardh:#7F4620;
+  --bg:linear-gradient(170deg,#F6EAD2,#EFDFBE 66%,#E5D2A8);--deco:#A9662F;
+  /* 楷体 ≠ t9 的宋体：这是和"米白学术"拉开距离的关键一手。
+     Win=KaiTi / macOS=Kaiti SC / Linux=AR PL UKai；都缺则退回宋体栈（仍成立）。 */
+  --tf-title:"Kaiti SC","STKaiti","KaiTi","楷体","AR PL UKai CN","AR PL UKai TW","Noto Serif SC","Songti SC",serif;
+  --fw-title:700;--ls-title:.3px;
+  --mk-shape:dash;--mk-w:9px;--mk-h:3px;--mk-radius:999px;--mk-top:12px;--mk-op:1;--li-pad:3.4cqw;
+  --mk2-w:8px;--mk2-h:3px;--mk2-op:1;
+  --tl-radius:999px;--tl-halo:rgba(90,66,48,.09);--rule-w:2px;
+  --deco-style:rule;--deco-w:52px;--deco-h:2px;--deco-r:999px;
+  --deco-bg:linear-gradient(90deg,var(--tk),rgba(127,70,32,0));
+  --deco-cbw:44px;--deco-cbh:3px;--deco-cbbg:linear-gradient(90deg,var(--tk),rgba(127,70,32,0));
+  --deco-foot:1px dashed var(--tborder);                   /* 手账虚线 */
+  --pno-op:.6;
+}
+
+/* ==========================================================================
+   四、缩略图色块（尺寸由调用方 .tpl-pick .sw 决定，这里只给 background）
+   ========================================================================== */
+.sw7 {background:linear-gradient(160deg,#0B1428,#13244E 55%,#0A1224)}
+.sw8 {background:linear-gradient(160deg,#0B211C,#123830 58%,#0A1D19)}
+.sw9 {background:linear-gradient(160deg,#FBF9F3,#F4F0E5 68%,#EEE8DA)}
+.sw10{background:linear-gradient(160deg,#08080A,#141417 58%,#0A0A0C)}
+.sw11{background:linear-gradient(160deg,#3B4A66,#4B5E82 55%,#303C55)}
+.sw12{background:linear-gradient(160deg,#F6EAD2,#EFDFBE 66%,#E5D2A8)}
+
 </style>
 </head>
 <body>
@@ -453,6 +713,16 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.4 — 把「生成质量」往上抬一档</div>
+        <div class="logdate">2026-10-25</div>
+        <ul class="loglist">
+          <li><b>模板 6 → 12 套，这次是真模板不是换色</b>：每套在底色气质、标题字体、字重字距、列表标记、装饰形态五个维度上都不一样；新增 3 套浅色（米白学术 / 暖砂手记等），不再全是深底。</li>
+          <li><b>星月诗笺接入</b>：三部曲共用的 30 句诗，封面给整句带出处、内容页页脚给半句（同一份里不重复）、封底给整句且不与封面撞句。换一份生成就换一批诗。</li>
+          <li><b>提示词升级</b>：加「槽位语法」硬规则 + 一份 6 页完整范例，让模型知道每条要点该怎么写，版式不再靠猜。</li>
+          <li><b>渲染兜底</b>：每页渲染前先校验版式契约——缺分隔符、条数不对就自动换一种排得下的版式，宁可变样子也不塌页。</li>
+          <li><b>修复</b>：两栏版式的约定和实现互相矛盾（提示词说第 1、2 条是小标题，渲染器却拿第 1 条和中间那条），导致整页结构错乱。</li>
+          <li><b>修复</b>：页数不再超生，设几页就出几页。</li>
+        </ul>
         <div class="logver">V1.3 — 先说清楚再动手</div>
         <div class="logdate">2026-10-25</div>
         <ul class="loglist">
@@ -543,6 +813,49 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 <script>
 "use strict";
 const $=s=>document.querySelector(s);
+/* ============ 扩展模板清单 t7–t12 ============ */
+/* ============================================================================
+   星火PPT · 扩展模板清单 t7–t12（直接拼到 index.html 的 TPL 数组后面即可）
+   ----------------------------------------------------------------------------
+   用法 A（最省事）：在 index.html 里把 TPL 改成
+       const TPL = [ ...原有 6 项..., ...window.XH_TEMPLATES_EXTRA ];
+   用法 B（不引入本文件）：把那 6 行对象字面量复制进去。
+
+   字段与现有 TPL 完全一致：id / name / cls / sw
+   ========================================================================== */
+window.XH_TEMPLATES_EXTRA = [
+  {id:"t7",  name:"深蓝图谱", cls:"theme-t7",  sw:"sw7"},
+  {id:"t8",  name:"墨绿咨询", cls:"theme-t8",  sw:"sw8"},
+  {id:"t9",  name:"米白学术", cls:"theme-t9",  sw:"sw9"},
+  {id:"t10", name:"黑金财报", cls:"theme-t10", sw:"sw10"},
+  {id:"t11", name:"靛青企划", cls:"theme-t11", sw:"sw11"},
+  {id:"t12", name:"暖砂手记", cls:"theme-t12", sw:"sw12"}
+];
+
+/* 附带元数据：给模板选择器做分组/角标/说明用，TPL 本身不需要它。
+   shape/deco 与 templates.css 里个主题的实际取值一一对应，可直接用来渲染"风格标签"。
+   tone: dark | light | mid   —— 底色气质
+   face: serif | sans         —— 标题字族气质 */
+window.XH_TEMPLATES_EXTRA_META = {
+  t7 : {tone:"dark",  face:"sans",  shape:"dash",   deco:"hairline", mood:"极简工程感，无衬线标题，发丝分隔线，冷白文字"},
+  t8 : {tone:"dark",  face:"serif", shape:"square", deco:"rule",     mood:"深墨绿底配米白衬线，稳重，商务咨询"},
+  t9 : {tone:"light", face:"serif", shape:"num",    deco:"hairline", mood:"米白纸感，宋体标题，黑正文，朱红点缀，论文讲义"},
+  t10: {tone:"dark",  face:"sans",  shape:"none",   deco:"block",    mood:"近黑底配香槟金，字重 900，财务年报"},
+  t11: {tone:"mid",   face:"sans",  shape:"dot",    deco:"block",    mood:"中蓝灰调，现代无衬线，圆角圆点，产品企划"},
+  t12: {tone:"light", face:"serif", shape:"dash",   deco:"rule",     mood:"浅米黄底配棕墨字，手账笔触，温柔克制"}
+};
+
+/* 五维速查（和 README 的表一致，方便在 UI 上直接显示"这六套哪里不一样"） */
+window.XH_TEMPLATES_EXTRA_DIMS = [
+  {id:"t7",  bg:"深蓝 #0B1428→#13244E", title:"无衬线 700 / 字距 2px",   mark:"dash 14×1",      deco:"hairline 满宽 1px"},
+  {id:"t8",  bg:"墨绿 #0B211C→#123830", title:"衬线 700 / 字距 .5px",     mark:"square 8×8",     deco:"rule 64px 渐变"},
+  {id:"t9",  bg:"米白 #FBF9F3→#EEE8DA", title:"衬线 700 / 字距 1px",      mark:"num 01. 编号",   deco:"hairline 满宽 1px"},
+  {id:"t10", bg:"近黑 #08080A→#141417", title:"无衬线 900 / 字距 2.5px",  mark:"none 无标记",    deco:"block 34×6 色块"},
+  {id:"t11", bg:"靛青 #3B4A66→#4B5E82", title:"无衬线 700 / 字距 .2px",   mark:"dot 9×9 圆点",   deco:"block 26×4 圆角色块"},
+  {id:"t12", bg:"暖砂 #FBF4E6→#EFE3CC", title:"衬线 700 / 字距 .3px",     mark:"dash 9×3 圆头",  deco:"rule 52px + 虚线页脚"}
+];
+
+
 const TPL=[
   {id:"t1",name:"长夜星火",cls:"theme-t1",sw:"sw1"},
   {id:"t2",name:"月白清光",cls:"theme-t2",sw:"sw2"},
@@ -551,6 +864,10 @@ const TPL=[
   {id:"t5",name:"紫雾星海",cls:"theme-t5",sw:"sw5"},
   {id:"t6",name:"沧海深蓝",cls:"theme-t6",sw:"sw6"},
 ];
+/* 合并扩展模板（t7–t12） */
+if(window.XH_TEMPLATES_EXTRA && window.XH_TEMPLATES_EXTRA.length){
+  window.XH_TEMPLATES_EXTRA.forEach(function(t){ if(t && t.id) TPL.push(t); });
+}
 const SKILLS=[
   {k:"report",n:"职场报告",d:"汇报 / 述职"},
   {k:"business",n:"商业计划",d:"BP / 路演"},
@@ -644,7 +961,7 @@ const LAYOUT_DOC_JS = `可用版式（layout）与 content 写法（content 永�
 - cover　封面。content 给 1~3 条副信息（场合 / 时间 / 汇报人），可不给。
 - closing　封底。content 给 2~3 条收束要点，不要只写「谢谢」。
 - bullets　要点页。3~5 条，每条一句完整判断。
-- two_col　两栏说明。4~6 条；第 1 条与第 2 条会被当作左右栏小标题，其余为栏内正文。
+- two_col　两栏对照。4~6 条，每条格式「小标题|说明」；前一半排左栏、后一半排右栏。
 - grid　　并列条目（细线网格）。3~6 条，每条一句。
 - kpi　　　大数字页。2~4 条，格式「数字|标签」，例：「3|部曲」「14.6|秒生成」。只有内容里确实有数字时才用。
 - timeline 时间轴。3~5 条，格式「阶段|说明」。
@@ -652,7 +969,7 @@ const LAYOUT_DOC_JS = `可用版式（layout）与 content 写法（content 永�
 - compare　左右对照。恰好 2 条，格式「大标题|要点①；要点②；要点③」。
 - quote　　金句页。恰好 1 条引文；出处写在 note 里。
 - table　　无竖线表格。3~6 条，格式「指标|数值|备注」。
-- zigzag　 交错图文。4~6 条，格式「小标题|说明」，左右交替排布。`;
+- zigzag　 交错图文。3~6 条，格式「小标题|说明」，左右交替排布。`;
 
 const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
 1. 【标题即结论】页标题必须是一句有信息量的判断，不能是标签。
@@ -671,7 +988,12 @@ const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
 6. 【语体】具体、克制、以事实说话，不要长句堆砌。
    禁用以下 AI 腔词与句式：闭环、赋能、解构、抓手、主战场、护城河、全方位、助力、深度赋能、看似……实则……、不是……而是……、不仅……更是……。
 7. 【证据边界】不编造原文没有的数据、案例、机构名、时间。原文没有数字就绝不写数字。
-8. 【文字工整】每条 12~30 字，短句优先，不要把小作文塞进一条。`;
+8. 【文字工整】每条 12~30 字，短句优先，不要把小作文塞进一条。
+
+【槽位语法·硬性】除 cover / closing / bullets / grid 外，每一条 content 都必须写成「小标题|说明」的形式（英文竖线 | 分隔）。缺少分隔符会导致该页无法排版；宁可换一种版式，也不要漏写 |。
+
+示例（6 页；注意每条槽位、结论式页标题、每页收束句）：
+{"title":"第一次实习面试，四步就能准备好","subtitle":"给大三学生的实操清单","slides":[{"title":"第一次实习面试，四步就能准备好","layout":"cover","content":["面向大三学生","2026 年秋"],"note":""},{"title":"面试不是临场发挥，而是提前设计好的对话","layout":"bullets","content":["简历决定你能不能进面试","高频问题有规律，提前准备能覆盖八成","复盘决定下一次能不能更好"],"note":"三步里任何一步做扎实，结果都会明显不同。"},{"title":"简历要用事实说话","layout":"two_col","content":["写什么|只写做过的项目与结果","怎么量|用数字描述规模与效果","怎么排|把与岗位最相关的放最前","怎么改|找一位学长帮你逐行改"],"note":"简历是筛选题，不是自我介绍。"},{"title":"高频问题有套路，提前练就不慌","layout":"steps","content":["自我介绍|一分钟内，突出与岗位相关的经历","为什么选我们|结合公司业务与自身兴趣","你的缺点|说一个你正在改、且不影响核心工作的点"],"note":"把答案练到脱口而出，现场才留得出余量。"},{"title":"复盘要落到一个能改的动作上","layout":"zigzag","content":["记录|面试当天记下所有被问到的问题","评估|对照 STAR 找出逻辑不清、例子不足处","改进|下次面试前只改一个最痛的短板"],"note":"复盘不是写日记，是找出下次能改的那一个动作。"},{"title":"现在就开始，把第一次面试变成有准备的练习","layout":"closing","content":["简历改三遍，找同学互审","高频问题写下来，练到自然","每次面试后花十分钟复盘"],"note":"第一次面试的价值，是让第二次更容易。"}]}`;
 
 const SKILL_META = {
   report:    { name:"职场报告", desc:"工作汇报 / 述职：结论先行、分条陈述、重点标金、数据支撑，庄重清晰。",
@@ -713,7 +1035,7 @@ function buildUserPromptJS(text, skillKey, pagesHint, refText){
   const parts = ["应用方向：" + s.name + "。\n\n请根据下面内容生成一份 PPT：\n\n" + text];
   if (refText) parts.push("\n\n【用户提供的参考材料（可引用）】：\n" + String(refText).slice(0, 20000));
   if (pagesHint && pagesHint >= 3) {
-    parts.push("\n\n请尽量控制在约 " + pagesHint + " 页。推荐结构参考：" + s.structure.join("、"));
+    parts.push("\n\n【页数硬性】必须正好 " + pagesHint + " 页（含封面与封底），不多也不少。推荐结构参考：" + s.structure.join("、"));
   } else {
     parts.push("\n\n推荐结构参考：" + s.structure.join("、"));
   }
@@ -1894,6 +2216,120 @@ $("#enh-ok").onclick=()=>{
 })(typeof window !== 'undefined' ? window : this);
 
 
+/* ===================== 星月诗笺 · 诗库（数据，不含逻辑） ===================== */
+/* ============================================================================
+ * 星月诗笺 · 星火三部曲共用诗库（供星火PPT 接入）
+ * ----------------------------------------------------------------------------
+ * 唯一职责：数据。不做选取、不写 DOM、不读时间。选取规则见 poems-README.md。
+ *
+ * 数据来源（全部逐字照抄，未改写任何一字、一标点、一断句）：
+ *   [A] 星火-专注pro\星火专注pro.html  →  POEM_GROUPS（5 组 × 6 句 = 30 句）
+ *       （同文件内容另存三份且完全一致：_gitrepo\index.html、_web\index.html、
+ *         星火介绍页\projects\focus-app\index.html，已逐句 diff 验证 0 差异）
+ *   [B] 星火介绍页\index.html、projects\*.html  →  首页 hero / epilogue / 各详情页 footer
+ *   [C] ②程序文件\static\index.html（第一部「星火续火花」）→ hero / 诗行 / 结语
+ *   [A] 与 [B][C] 无重叠，[B] 与 [C] 高度重叠（同一批站内用句）。
+ *
+ * 出处口径：凡是文件里已经写了出处的，出处文字原样保留（含「宋·」「金·」等
+ * 朝代前缀，不做统一规整）；站内用句原本无出处者由本次补齐，补的是可查证的
+ * 通行说法，见 poems-README.md「出处核验」一节。
+ *
+ * 用法：
+ *   <\script src="dev/poems.js"><\/script>   // 或整段内联进单文件
+ *   window.XH_POEMS.groups  // 5 组，气质索引（星河/月夜/疏星淡月/夜风与晓/人间星语）
+ *   window.XH_POEMS.full    // 12 句整句 —— 封面 / 封底
+ *   window.XH_POEMS.half    // 20 句半句 —— 内容页页脚
+ * ========================================================================== */
+window.XH_POEMS = {
+  groups: [
+    { name: "星河", lines: [
+        { text: "星汉灿烂，若出其里。", from: "曹操《观沧海》" },
+        { text: "天上星河转，人间帘幕垂。", from: "宋·李清照《南歌子·天上星河转》" },
+        { text: "星点点，月团团，倒流河汉入杯盘。", from: "金·刘著《鹧鸪天·雪照山城玉指寒》" },
+        { text: "金波银汉，潋滟无际。", from: "宋·柳永《佳人醉·暮景萧萧雨霁》" },
+        { text: "天接云涛连晓雾，星河欲转千帆舞。", from: "宋·李清照《渔家傲·天接云涛连晓雾》" },
+        { text: "天外一钩残月带三星。", from: "宋·秦观《南歌子·玉漏迢迢尽》" }
+    ]},
+    { name: "月夜", lines: [
+        { text: "明月松间照，清泉石上流。", from: "王维《山居秋暝》" },
+        { text: "海上生明月，天涯共此时。", from: "张九龄《望月怀远》" },
+        { text: "春江潮水连海平，海上明月共潮生。", from: "张若虚《春江花月夜》" },
+        { text: "明月如霜，好风如水，清景无限。", from: "宋·苏轼《永遇乐·彭城夜宿燕子楼》" },
+        { text: "月华如练，长是人千里。", from: "宋·范仲淹《御街行·秋日怀旧》" },
+        { text: "今夜月明人尽望，不知秋思落谁家。", from: "王建《十五夜望月》" }
+    ]},
+    { name: "疏星淡月", lines: [
+        { text: "耿斜河，疏星淡月，断云微度。", from: "宋·张元干《贺新郎·送胡邦衡待制赴新州》" },
+        { text: "时见疏星落画檐，几点流萤小。", from: "宋·叶梦得《卜算子·五月八日夜凤凰亭纳凉》" },
+        { text: "一川明月疏星，浣纱人影娉婷。", from: "宋·辛弃疾《清平乐·博山道中即事》" },
+        { text: "疏星淡月秋千院，愁云恨雨芙蓉面。", from: "元·张可久《塞鸿秋·春情》" },
+        { text: "淡月疏星共寂寥。", from: "宋·周邦彦《南乡子·咏秋夜》" },
+        { text: "淡云来往月疏疏。", from: "宋·李清照《浣溪沙·髻子伤春慵更梳》" }
+    ]},
+    { name: "夜风与晓", lines: [
+        { text: "缺月挂疏桐，漏断人初静。", from: "宋·苏轼《卜算子·黄州定慧院寓居作》" },
+        { text: "晓月坠，宿云微，无语枕频欹。", from: "南唐·李煜《喜迁莺·晓月坠》" },
+        { text: "新月娟娟，夜寒江静山衔斗。", from: "宋·汪藻《点绛唇·新月娟娟》" },
+        { text: "昨夜星辰昨夜风。", from: "李商隐《无题》" },
+        { text: "淡月朦胧，更有微微弄袖风。", from: "宋·苏轼《减字木兰花·花》" },
+        { text: "似此星辰非昨夜，为谁风露立中宵。", from: "黄景仁《绮怀》" }
+    ]},
+    { name: "人间星语", lines: [
+        { text: "醉后不知天在水，满船清梦压星河。", from: "唐温如《题龙阳县青草湖》" },
+        { text: "天阶夜色凉如水，卧看牵牛织女星。", from: "杜牧《秋夕》" },
+        { text: "月出皎兮，佼人僚兮。", from: "《诗经·陈风·月出》" },
+        { text: "万籁生山，一星在水，鹤梦疑重续。", from: "清·厉鹗《百字令·月夜过七里滩》" },
+        { text: "夜月一帘幽梦，春风十里柔情。", from: "宋·秦观《八六子·倚危亭》" },
+        { text: "一片流云无觅处，云里疏星，不共云流去。", from: "近代·王国维《蝶恋花》" }
+    ]}
+  ],
+
+  /* 封面 / 封底可用的整句：气势足、能独立成立。
+     来源 [B][C] 站内既有 4 句 + [A] 诗库中体格最完整、最不依赖上下文的 8 句。 */
+  full: [
+    { text: "星星之火，可以燎原。", from: "毛泽东《星星之火，可以燎原》" },
+    { text: "东风夜放花千树，更吹落，星如雨。", from: "宋·辛弃疾《青玉案·元夕》" },
+    { text: "愿我如星君如月，夜夜流光相皎洁。", from: "宋·范成大《车遥遥篇》" },
+    { text: "纤云弄巧，飞星传恨，银汉迢迢暗度。", from: "宋·秦观《鹊桥仙·纤云弄巧》" },
+    { text: "星汉灿烂，若出其里。", from: "曹操《观沧海》" },
+    { text: "海上生明月，天涯共此时。", from: "张九龄《望月怀远》" },
+    { text: "春江潮水连海平，海上明月共潮生。", from: "张若虚《春江花月夜》" },
+    { text: "天接云涛连晓雾，星河欲转千帆舞。", from: "宋·李清照《渔家傲·天接云涛连晓雾》" },
+    { text: "醉后不知天在水，满船清梦压星河。", from: "唐温如《题龙阳县青草湖》" },
+    { text: "似此星辰非昨夜，为谁风露立中宵。", from: "黄景仁《绮怀》" },
+    { text: "今夜月明人尽望，不知秋思落谁家。", from: "王建《十五夜望月》" },
+    { text: "万籁生山，一星在水，鹤梦疑重续。", from: "清·厉鹗《百字令·月夜过七里滩》" }
+  ],
+
+  /* 内容页页脚可用的半句：短、克制、不抢正文。
+     19 句取自 [A] 诗库中篇幅短、情绪淡的句子；第 20 句是 [B][C] 首页 hero 的
+     下半句（原句为整联「愿我如星君如月，夜夜流光相皎洁。」，此处取半句，
+     末尾不加句号——半句本就不该有收束标点，这是唯一一处有意为之的差异）。 */
+  half: [
+    { text: "天上星河转，人间帘幕垂。", from: "宋·李清照《南歌子·天上星河转》" },
+    { text: "金波银汉，潋滟无际。", from: "宋·柳永《佳人醉·暮景萧萧雨霁》" },
+    { text: "天外一钩残月带三星。", from: "宋·秦观《南歌子·玉漏迢迢尽》" },
+    { text: "明月松间照，清泉石上流。", from: "王维《山居秋暝》" },
+    { text: "明月如霜，好风如水，清景无限。", from: "宋·苏轼《永遇乐·彭城夜宿燕子楼》" },
+    { text: "月华如练，长是人千里。", from: "宋·范仲淹《御街行·秋日怀旧》" },
+    { text: "耿斜河，疏星淡月，断云微度。", from: "宋·张元干《贺新郎·送胡邦衡待制赴新州》" },
+    { text: "时见疏星落画檐，几点流萤小。", from: "宋·叶梦得《卜算子·五月八日夜凤凰亭纳凉》" },
+    { text: "一川明月疏星，浣纱人影娉婷。", from: "宋·辛弃疾《清平乐·博山道中即事》" },
+    { text: "淡月疏星共寂寥。", from: "宋·周邦彦《南乡子·咏秋夜》" },
+    { text: "淡云来往月疏疏。", from: "宋·李清照《浣溪沙·髻子伤春慵更梳》" },
+    { text: "缺月挂疏桐，漏断人初静。", from: "宋·苏轼《卜算子·黄州定慧院寓居作》" },
+    { text: "晓月坠，宿云微，无语枕频欹。", from: "南唐·李煜《喜迁莺·晓月坠》" },
+    { text: "新月娟娟，夜寒江静山衔斗。", from: "宋·汪藻《点绛唇·新月娟娟》" },
+    { text: "昨夜星辰昨夜风。", from: "李商隐《无题》" },
+    { text: "淡月朦胧，更有微微弄袖风。", from: "宋·苏轼《减字木兰花·花》" },
+    { text: "天阶夜色凉如水，卧看牵牛织女星。", from: "杜牧《秋夕》" },
+    { text: "月出皎兮，佼人僚兮。", from: "《诗经·陈风·月出》" },
+    { text: "夜月一帘幽梦，春风十里柔情。", from: "宋·秦观《八六子·倚危亭》" },
+    { text: "夜夜流光相皎洁", from: "宋·范成大《车遥遥篇》" }
+  ]
+};
+
+
 /* ---- 状态检查 ---- */
 async function checkApi(){
   const hasKeyInBox=$("#apikey").value.trim();
@@ -1935,6 +2371,7 @@ async function generate(){
 
   /* ---- 校验通过：从这里起的清理一律交给 finally（结构性保证） ---- */
   generating=true;setUiGenerating(true);
+  try{ xhPoemReset(); }catch(e){}   /* 每份 deck 重新选诗 */
   let acc="";
   try{
     try{ if(bgm&&bgm.duckOn) bgm.duckOn(); }catch(e){}   /* 生成中：音乐压低 */
@@ -2005,6 +2442,20 @@ function buildDeck(doctor){
     content:Array.isArray(s.content)?s.content.filter(x=>x!==null&&x!==undefined).map(x=>String(x)):(s.content?[String(s.content)]:[])
   }));
   if(!slides.length)return;
+
+  /* 页数硬约束：用户设了几页就是几页（保留封面与封底，裁中间的） */
+  try{
+    const want=parseInt($("#pages").value)||0;
+    if(want>=3 && slides.length>want){
+      const head=slides[0], tail=slides[slides.length-1];
+      const isClosing=(tail.layout||"").toLowerCase()==="closing";
+      const midCount=want-2;
+      const mid=slides.slice(1, isClosing?slides.length-1:slides.length).slice(0,midCount);
+      slides.length=0;
+      slides.push(head, ...mid);
+      if(isClosing) slides.push(tail);
+    }
+  }catch(e){}
   state.doctor={title:doctor.title||slides[0].title||"未命名",
     subtitle:doctor.subtitle||"",slides};
   state.slides=slides;
@@ -2080,11 +2531,107 @@ function normLayout(l){
 }
 function splitPair(t){const a=String(t).split("|");return [a[0].trim(),a.slice(1).join("|").trim()];}
 
+/* 版式契约表：最小条数 / 最大条数 / 至少几条带「|」 */
+const LAYOUT_RULE = {
+  kpi:      {min:2, max:4, pipe:1},
+  timeline: {min:3, max:5, pipe:1},
+  steps:    {min:3, max:5, pipe:1},
+  compare:  {min:2, max:2, pipe:2},
+  quote:    {min:1, max:1, pipe:0},
+  table:    {min:3, max:6, pipe:1},
+  zigzag:   {min:3, max:6, pipe:1},
+  two_col:  {min:2, max:6, pipe:1},
+  bullets:  {min:1, max:6, pipe:0},
+  grid:     {min:1, max:8, pipe:0}
+};
+
+/* 渲染兜底：内容不合契约时自动降级/裁剪，保证「宁可换版式，也不塌页」 */
+function normalizeSlide(s){
+  let L = normLayout(s.layout);
+  let pts = (s.content||[]).map(t=>String(t)).filter(t=>t.trim()!=="");
+  if(L==="cover"||L==="closing") return {layout:L, pts:pts};
+
+  const rule = LAYOUT_RULE[L];
+  if(rule){
+    const piped = pts.filter(p=>p.indexOf("|")>=0).length;
+    // 需要槽位的版式：带 | 的条数不够就降级
+    if(rule.pipe>0 && piped < rule.pipe){
+      L = (L==="compare" && pts.length>=3) ? "grid" : "bullets";
+    } else if(L==="compare" && pts.length!==2){
+      // 对照页必须正好两方；给多了说明本意是多方案并列，转 grid 保住内容
+      L = (pts.length>=3 ? "grid" : "bullets");
+    } else if(pts.length < rule.min){
+      // 条数不够：compare/table/timeline 这类强结构版式退化
+      if(L==="compare"||L==="table"||L==="timeline"||L==="steps"||L==="kpi"||L==="zigzag"){
+        L = "bullets";
+      }
+    } else if(pts.length > rule.max){
+      pts = pts.slice(0, rule.max);
+    }
+  }
+  if(L==="quote" && pts.length>2) pts = pts.slice(0,2);
+  return {layout:L, pts:pts};
+}
+
+/* ===================== 星月诗笺 · 选句器 ===================== */
+/* 规则（来自 poems-README）：
+   - 封面/封底取 full，且两者硬不撞
+   - 内容页页脚取 half，同 deck 内不重复
+   - 随机起点用毫秒时间戳（按天轮换会让「同一天重生成」拿到同一句）
+   - 诗库缺失时静默不放诗，不留空块 */
+var _xhPoemSeq = 0;
+function xhPoemReset(){
+  state.poemSeed = (Date.now() + (_xhPoemSeq++)) % 2147483647;
+  state.poemUsedHalf = {};
+  state.poemAssign = {};
+  state.poemCover = null;
+  state.poemBack = null;
+}
+function xhPoemAvailable(){
+  return !!(window.XH_POEMS && window.XH_POEMS.half && window.XH_POEMS.half.length);
+}
+function xhPoemHalf(i){
+  if(!xhPoemAvailable()) return null;
+  if(state.poemSeed==null) xhPoemReset();
+  state.poemAssign = state.poemAssign || {};
+  state.poemUsedHalf = state.poemUsedHalf || {};
+  if(state.poemAssign[i]) return state.poemAssign[i];
+  var list = window.XH_POEMS.half, n = list.length;
+  var idx = (state.poemSeed + i*7) % n;
+  var guard = 0;
+  while(state.poemUsedHalf[idx] && guard < n){ idx = (idx+1) % n; guard++; }
+  state.poemUsedHalf[idx] = 1;
+  state.poemAssign[i] = list[idx];
+  return list[idx];
+}
+function xhPoemFull(kind){
+  if(!(window.XH_POEMS && window.XH_POEMS.full && window.XH_POEMS.full.length)) return null;
+  if(state.poemSeed==null) xhPoemReset();
+  var list = window.XH_POEMS.full, n = list.length;
+  var key = kind === "back" ? "poemBack" : "poemCover";
+  if(state[key]) return state[key];
+  var start = (state.poemSeed + (kind === "back" ? 5 : 0)) % n;
+  var idx = start, guard = 0;
+  if(kind === "back" && state.poemCover){
+    // 封底与封面硬不撞
+    while(list[idx] && state.poemCover && list[idx].text === state.poemCover.text && guard < n){
+      idx = (idx+1) % n; guard++;
+    }
+  }
+  state[key] = list[idx];
+  return state[key];
+}
+function poemFootHTML(i){
+  var p = xhPoemHalf(i);
+  if(!p) return "";
+  return '<div class="poem-foot">' + esc(p.text) + '</div>';
+}
+
 function pageHTML(s,i,total){
-  const L=normLayout(s.layout);
+  const N=normalizeSlide(s);
+  const L=N.layout, pts=N.pts;
   if(L==="cover")return coverHTML(s);
   if(L==="closing")return closingHTML(s);
-  const pts=(s.content||[]).map(t=>String(t)).filter(t=>t!=="");
   const note=s.note?`<div class="pnote">${esc(s.note)}</div>`:"";
   const head=`<div class="pt">${esc(s.title||"")}</div><div class="phr"></div>`;
 
@@ -2113,16 +2660,17 @@ function pageHTML(s,i,total){
     body=`<div class="zz">${pts.map(p=>{const[a,d]=splitPair(p);return `<div class="zz-row"><div class="zz-h">${esc(a)}</div><div class="zz-d">${esc(d)}</div></div>`;}).join("")}</div>`;
   }else if(L==="two_col"){
     const mid=Math.max(1,Math.ceil(pts.length/2));
-    const c1=pts.slice(0,mid),c2=pts.slice(mid);
+    const colHTML=arr=>arr.map(p=>{const a=splitPair(p);
+      return `<div class="tc-item"><b>${esc(a[0])}</b>${a[1]?`<span>${esc(a[1])}</span>`:""}</div>`;}).join("");
     body=`<div class="twocol-body">
-      <div class="tc-col"><h4>${esc(c1[0]||"")}</h4><p>${c1.slice(1).map(esc).join("<br>")}</p></div>
-      <div class="tc-col"><h4>${esc(c2[0]||"")}</h4><p>${c2.slice(1).map(esc).join("<br>")}</p></div></div>`;
+      <div class="tc-col">${colHTML(pts.slice(0,mid))}</div>
+      <div class="tc-col">${colHTML(pts.slice(mid))}</div></div>`;
   }else if(L==="grid"){
     body=`<div class="lgrid">${pts.map((p,ii)=>`<div class="lcell"><div class="i">${String(ii+1).padStart(2,"0")}</div><p>${esc(p)}</p></div>`).join("")}</div>`;
   }else{
     body=`<ul class="ulist">${pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
   }
-  return head+body+note;
+  return head+body+note+poemFootHTML(i);
 }
 function coverHTML(s){
   const meta=(s.content||[]).map(t=>String(t)).filter(Boolean).join("　·　");
@@ -2131,13 +2679,13 @@ function coverHTML(s){
     <div class="ct">${esc(s.title||(state.doctor&&state.doctor.title)||"")}</div>
     <div class="cb"></div>
     <div class="cs">${esc(s.subtitle||(state.doctor&&state.doctor.subtitle)||"")}</div>
-    ${meta?`<div class="cm">${esc(meta)}</div>`:""}`;
+    ${meta?`<div class="cm">${esc(meta)}</div>`:""}${(()=>{const p=xhPoemFull("cover");return p?`<div class="poem-cov">${esc(p.text)}<span class="poem-src">${esc(p.from)}</span></div>`:"";})()}`;
 }
 function closingHTML(s){
   const lines=(s.content||[]).map(t=>String(t)).filter(Boolean);
   const nt=s.note?`<div class="cnote">${esc(s.note)}</div>`:"";
   return `<div class="ct">${esc(s.title||"谢谢")}</div>
-    ${lines.length?`<div class="cs">${lines.map(esc).join("<br>")}</div>`:`<div class="cs">星星之火，可以燎原</div>`}${nt}`;
+    ${lines.length?`<div class="cs">${lines.map(esc).join("<br>")}</div>`:`<div class="cs">星星之火，可以燎原</div>`}${nt}${(()=>{const p=xhPoemFull("back");return p?`<div class="poem-bk">${esc(p.text)}<span class="poem-src">${esc(p.from)}</span></div>`:"";})()}`;
 }
 /* 渲染契约自检：词表里每个版式都必须真的画得出来 */
 function checkRenderer(){
