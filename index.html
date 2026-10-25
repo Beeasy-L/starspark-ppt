@@ -363,6 +363,19 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .page.closing .ct{font-size:clamp(28px,4.74cqw,44px)}
 .page.quote .qt{font-size:clamp(22px,3.95cqw,38px)}
 
+.ckrow{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);margin:8px 0;cursor:pointer}
+.imgcfg{display:none;gap:8px;flex-direction:column;margin-bottom:8px}
+.imgcfg.on{display:flex}
+.imgcfg .ipt{margin:0}
+/* 页面配图 */
+.page .pg-img{position:absolute;inset:0;background-size:cover;background-position:center;
+  opacity:.30;pointer-events:none;z-index:0}
+.page .pg-img.band{inset:0 0 0 auto;width:38%;opacity:.9;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 22%);mask-image:linear-gradient(90deg,transparent,#000 22%)}
+.page.has-img>*:not(.pg-img):not(.pno){position:relative;z-index:1}
+.page.cover.has-img .ct{text-shadow:0 4px 24px rgba(0,0,0,.55)}
+.page.content-img{padding-right:var(--gutter)}
+
 /* 放映 */
 .overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
 .overlay.on{display:block}
@@ -732,6 +745,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="file-drop" id="filedrop">点击或拖拽上传参考文档<br><span style="font-size:11px">支持 txt / md / pdf</span></div>
       <input type="file" id="fileinput" accept=".txt,.md,.pdf,.markdown" multiple>
       <div class="ref-list" id="reflist"></div>
+
+      <div class="label">配图（可选）</div>
+      <label class="ckrow"><input type="checkbox" id="imgOn"> 生成时用 AI 配一张封面图</label>
+      <div id="imgCfg" class="imgcfg">
+        <input id="imgBase" class="ipt" placeholder="生图接口地址（如 https://open.bigmodel.cn/api/paas/v4）">
+        <input id="imgKey" type="password" class="ipt" placeholder="生图 Key（可与上面的聊天 Key 不同）">
+        <input id="imgModel" class="ipt" placeholder="生图模型（如 cogview-3-flash）">
+        <div class="api-note">🔒 生图 Key 同样只在当前标签页内有效。接口需兼容 <code>/images/generations</code>。生图较慢（约 10~30 秒），只在勾选时才会调用。</div>
+      </div>
 
       <div class="label">背景音乐（可选）</div>
       <div id="bgmSlot"></div>
@@ -1677,6 +1699,84 @@ function streamChat(opts){
       }catch(e){ reject(e); }
     })();
   });
+}
+
+
+/* ===================== AI 配图 ===================== */
+function imgCfgEls(){
+  return {
+    on: $("#imgOn"),
+    base: $("#imgBase"),
+    key: $("#imgKey"),
+    model: $("#imgModel")
+  };
+}
+function syncImgCfg(){
+  const e = imgCfgEls();
+  if(!e.on) return;
+  const box = $("#imgCfg");
+  if(box) box.classList.toggle("on", !!e.on.checked);
+}
+function urlToDataURL(url){
+  return fetch(url, {mode:"cors"}).then(function(r){
+    if(!r.ok) throw new Error("下载图片失败 "+r.status);
+    return r.blob();
+  }).then(function(b){
+    return new Promise(function(res, rej){
+      const fr = new FileReader();
+      fr.onload = function(){ res(fr.result); };
+      fr.onerror = function(){ rej(new Error("图片转码失败")); };
+      fr.readAsDataURL(b);
+    });
+  });
+}
+async function aiImage(prompt){
+  const e = imgCfgEls();
+  const base = (e.base.value||"").trim();
+  const key  = (e.key.value||"").trim();
+  const model= (e.model.value||"").trim();
+  if(!key) throw new Error("请先填写生图 Key");
+  if(!base) throw new Error("请先填写生图接口地址");
+  if(!model) throw new Error("请先填写生图模型");
+
+  let data;
+  if(state.backend){
+    const res = await fetch("/api/image",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({apiKey:key,baseUrl:base,model:model,prompt:prompt})});
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.error||"生图失败");
+    data = j.data || [];
+  }else{
+    const url = normalizeBaseUrl(base) + "/images/generations";
+    const res = await fetch(url,{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+      body:JSON.stringify({model:model,prompt:prompt,n:1})});
+    if(!res.ok){ const t = await res.text().catch(function(){return "";}); throw new Error("生图接口 "+res.status+"："+String(t).slice(0,200)); }
+    const j = await res.json();
+    data = j.data || [];
+  }
+  const one = data[0] || {};
+  if(one.b64_json) return "data:image/png;base64," + one.b64_json;
+  if(one.url) return await urlToDataURL(one.url);
+  throw new Error("生图接口没有返回图片");
+}
+function imgPromptFor(title, subtitle, extra){
+  const t = (title||"").trim() || "主题演讲";
+  const s = (subtitle||"").trim();
+  return t + (s ? "，" + s : "") + "，" + (extra||"扁平插画风格，深蓝夜空与金色点缀，宁静高级感，无文字，没有字母，高清") ;
+}
+/* 给某一页配图（编辑面板里调用） */
+async function genPageImage(i){
+  const s = state.slides[i];
+  if(!s) return;
+  toast("正在生图，约 10~30 秒…");
+  try{
+    const url = await aiImage(imgPromptFor(s.title, (state.doctor&&state.doctor.subtitle)||"", "作为演示文稿配图"));
+    s.img = url;
+    if(!state.coverImg && (s.layout||"").toLowerCase()==="cover") state.coverImg = url;
+    renderStage(); renderSlide(); persist();
+    toast("已配图");
+  }catch(e){ toast("生图失败："+((e&&e.message)||e)); }
 }
 
 /* ===================== 提示词优化 ===================== */
@@ -3807,6 +3907,19 @@ async function generate(){
     }
     // 结束后尝试解析完整结果
     if(!state.doctor&&acc.trim()){try{parseStreaming(acc);}catch(e){}}
+    // 勾了配图：为封面生成一张
+    try{
+      const e = imgCfgEls();
+      if(e.on && e.on.checked && state.doctor){
+        toast("正文已生成，正在配封面图…");
+        const t = state.doctor.title || "";
+        const st = state.doctor.subtitle || "";
+        const url = await aiImage(imgPromptFor(t, st, "作为演示文稿封面背景图"));
+        state.coverImg = url;
+        if(state.slides[0]) state.slides[0].img = url;
+        renderStage(); renderSlide();
+      }
+    }catch(err){ toast("配图失败："+((err&&err.message)||err)); }
     if(!state.doctor){toast("未解析到有效 PPT 结构，请重试或精简内容");}
   }catch(e){
     toast("生成失败："+((e&&e.message)||e));
@@ -3895,7 +4008,7 @@ function ltype(l){return normLayout(l);}
 function renderSlide(){
   const s=state.slides[state.current];
   const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
-  $("#stage").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)}">
+  $("#stage").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)}${(s.img||(normLayout(s.layout)==="cover"&&state.coverImg))?" has-img":""}">
     ${pageHTML(s,state.current,state.slides.length)}<span class="pno">${state.current+1} / ${state.slides.length}</span></div>`;
   $("#stage").onclick=()=>openSheet(state.current);
   scheduleFit();
@@ -4069,11 +4182,13 @@ function pageHTML(s,i,total){
   }else{
     body=`<ul class="ulist">${pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
   }
-  return head+body+note+poemFootHTML(i);
+  const band = s.img ? `<div class="pg-img band" style="background-image:url('${s.img}')"></div>` : "";
+  return band+head+body+note+poemFootHTML(i);
 }
 function coverHTML(s){
   const meta=(s.content||[]).map(t=>String(t)).filter(Boolean).join("　·　");
-  return `<div class="deco"></div>
+  const ci = s.img || state.coverImg || "";
+  return `<div class="deco"></div>${ci?`<div class="pg-img" style="background-image:url('${ci}')"></div>`:""}
     <div class="ck">SPARK PPT</div>
     <div class="ct">${esc(s.title||(state.doctor&&state.doctor.title)||"")}</div>
     <div class="cb"></div>
@@ -4323,6 +4438,7 @@ function showCustomModel(show){
 }
 
 renderSkills();renderTpls();checkApi();renderHist();initApiPrefs();checkRenderer();
+try{ syncImgCfg(); var _io=$("#imgOn"); if(_io) _io.addEventListener("change", syncImgCfg); }catch(e){}
 
 /* ---- 背景音乐 ---- */
 var bgm = null;
