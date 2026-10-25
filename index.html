@@ -459,6 +459,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
           <li><b>新增「先帮我优化提示词」</b>：点一下，AI 会把你的原始素材整理成一份更完善的提示词（补上读者、页数、主线、语气），<b>你可以直接改</b>；确认后才开始生成 PPT，不满意就重来。</li>
           <li><b>新增背景音乐</b>：可在配置区开关与调音量；生成期间自动把音乐压低一档，出稿后平滑恢复。音频只在真正播放时才下载，不影响首屏。</li>
           <li><b>修复一个严重缺陷</b>：主按钮「✦ 生成 PPT」此前<b>没有绑定点击事件</b>——点了完全没反应。现已修好，并改用「真点按钮」的方式重新验证通过。</li>
+          <li><b>修复一个「第一次用」就会撞上的缺陷</b>：填了内容但没填 Key 就点生成，按钮会<b>永久卡在「生成中…」</b>、背景音乐<b>一直压在 40% 不恢复</b>。现已把校验提前、清理收进 <code>try/finally</code>，无论中途从哪退出，收尾一定会跑。</li>
           <li><b>修复</b>：流式接口在等「流结束」而不是等「完成信号」，导致部分浏览器下优化会一直转圈。</li>
         </ul>
         <div class="logver">V1.2 — 可以不用服务器了</div>
@@ -1919,14 +1920,8 @@ async function generate(){
   const text=((state.genText||"").trim()||$("#prompt").value.trim());
   if(!text){toast("请先输入要生成的内容");return;}
   if(generating)return;
-  generating=true;setUiGenerating(true);
-  try{ if(bgm&&bgm.duckOn) bgm.duckOn(); }catch(e){}   /* 生成中：音乐压低 */
-  state.doctor=null;state.slides=[];state.current=0;renderStage();
-  resetCanvas();
-  $("#progressbar").classList.add("show");$("#progfill").style.width="6%";
-  $("#progcur").textContent="正在拆解内容…";$("#progsub").textContent="";
 
-  let acc="";
+  /* ---- 所有校验先做完：任何提前 return 都不许留下副作用 ---- */
   const pages=parseInt($("#pages").value)||0;
   const apiKey=$("#apikey").value.trim();
   if(!apiKey){toast("请先填写你的 API Key");return;}
@@ -1937,11 +1932,22 @@ async function generate(){
     if(!model){toast("请填写自定义模型名");return;}
   }
   const baseUrl=$("#baseUrl").value.trim();
-  const body={text,skill:state.skill,template:state.template,pages,
-    refText:state.refTexts.join("\n\n---\n\n"),
-    apiKey,baseUrl,model};
-  saveApiPrefs(apiKey,model,baseUrl);
+
+  /* ---- 校验通过：从这里起的清理一律交给 finally（结构性保证） ---- */
+  generating=true;setUiGenerating(true);
+  let acc="";
   try{
+    try{ if(bgm&&bgm.duckOn) bgm.duckOn(); }catch(e){}   /* 生成中：音乐压低 */
+    state.doctor=null;state.slides=[];state.current=0;renderStage();
+    resetCanvas();
+    $("#progressbar").classList.add("show");$("#progfill").style.width="6%";
+    $("#progcur").textContent="正在拆解内容…";$("#progsub").textContent="";
+
+    const body={text,skill:state.skill,template:state.template,pages,
+      refText:state.refTexts.join("\n\n---\n\n"),
+      apiKey,baseUrl,model};
+    saveApiPrefs(apiKey,model,baseUrl);
+
     const res = state.backend
       ? await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
       : directGenerate(body);
@@ -1967,16 +1973,16 @@ async function generate(){
     if(!state.doctor&&acc.trim()){try{parseStreaming(acc);}catch(e){}}
     if(!state.doctor){toast("未解析到有效 PPT 结构，请重试或精简内容");}
   }catch(e){
-    toast("生成失败："+e.message);
+    toast("生成失败："+((e&&e.message)||e));
     resetCanvas();
+  }finally{
+    state.genText="";
+    try{ if(bgm&&bgm.duckOff) bgm.duckOff(); }catch(e){}  /* 恢复音量：成功失败都会跑 */
+    generating=false;setUiGenerating(false);
+    $("#progressbar").classList.remove("show");
+    if(state.doctor)persist();
   }
-  state.genText="";
-  try{ if(bgm&&bgm.duckOff) bgm.duckOff(); }catch(e){}  /* 结束（含失败路径）：恢复音量 */
-  generating=false;setUiGenerating(false);
-  $("#progressbar").classList.remove("show");
-  if(state.doctor)persist();
 }
-
 function parseStreaming(raw){
   // 提取并增量解析 JSON（容忍前后缀与未闭合）
   const s=raw.trim();
