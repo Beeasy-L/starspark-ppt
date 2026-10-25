@@ -1322,7 +1322,7 @@ $("#enh-ok").onclick=()=>{
  *   2 首次手势解锁（pointerdown/keydown/touchstart/scroll），成功即摘监听
  *   3 静默降级：file: 不加载、play() reject / error / 解码失败全部吃掉
  *   4 duck 用 rAF 渐变（500ms 降 / 800ms 升），绝不硬赋值
- *   5 感知音量曲线 level/60^1.8 * 0.42，上限远离 1.0
+ *   5 感知音量曲线 level/60^1.8 * 0.62，上限远离 1.0
  *   6 touched 标记保护用户选择（localStorage，全 try/catch）
  *   7 visibilitychange 回前台补播（iOS/Safari）
  *   8 紧凑横排控件，用主页面 CSS 变量，不固定悬浮
@@ -1334,7 +1334,7 @@ $("#enh-ok").onclick=()=>{
   var STYLE_ID = 'xinghuo-bgm-style';
   var DEFAULT_STORAGE_KEY = 'xinghuoPPT_bgm';
   var LEVEL_MAX = 60;
-  var GAIN_CEIL = 0.42;       // 混音余量：最大增益 0.42，永远不接近 1.0
+  var GAIN_CEIL = 0.62;       // 混音上限：滑杆拉满时增益 0.62（仍留余量，不接近 1.0）
   var GESTURE_EVENTS = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
   var DUCK_DOWN_MS = 500;
   var DUCK_UP_MS = 800;
@@ -1442,11 +1442,11 @@ $("#enh-ok").onclick=()=>{
 
     var src = typeof opt.src === 'string' ? opt.src : '';
     var storageKey = (typeof opt.storageKey === 'string' && opt.storageKey) ? opt.storageKey : DEFAULT_STORAGE_KEY;
-    var defaultLevel = clamp(num(opt.defaultLevel, 20), 0, LEVEL_MAX);
+    var defaultLevel = clamp(num(opt.defaultLevel, 34), 0, LEVEL_MAX);
     var duckRatio = clamp(num(opt.duckRatio, 0.4), 0, 1);
 
     /* ---- 状态（第 6 条：touched 是总闸） ---- */
-    var state = { enabled: true, level: defaultLevel, touched: false };
+    var state = { enabled: true, level: defaultLevel, touched: false, levelTouched: false };
 
     var audio = null;          // HTMLAudioElement（惰性创建，隐藏节点）
     var audioBroken = false;   // 加载/解码失败后置位，之后安静地当作没有音乐
@@ -1480,7 +1480,8 @@ $("#enh-ok").onclick=()=>{
         global.localStorage.setItem(storageKey, JSON.stringify({
           enabled: !!state.enabled,
           level: state.level,
-          touched: !!state.touched
+          touched: !!state.touched,
+          levelTouched: !!state.levelTouched
         }));
       } catch (e) { /* 隐私模式 / 配额满：忽略 */ }
     }
@@ -1492,14 +1493,23 @@ $("#enh-ok").onclick=()=>{
      */
     function applyInitialState() {
       var saved = readStore();
+
+      // enabled 走 touched 总闸：用户关掉了，就永远别自作主张打开
       if (saved && saved.touched === true) {
         state.enabled = saved.enabled !== false;
-        state.level = clamp(num(saved.level, defaultLevel), 0, LEVEL_MAX);
         state.touched = true;
       } else {
         state.enabled = true;
-        state.level = defaultLevel;
         state.touched = false;
+      }
+
+      // level 单独走 levelTouched：没手动拖过滑杆的人，永远跟随最新默认值
+      if (saved && saved.levelTouched === true) {
+        state.level = clamp(num(saved.level, defaultLevel), 0, LEVEL_MAX);
+        state.levelTouched = true;
+      } else {
+        state.level = defaultLevel;
+        state.levelTouched = false;
       }
     }
 
@@ -1562,7 +1572,7 @@ $("#enh-ok").onclick=()=>{
         a.className = 'bgm-player';
         a.setAttribute('aria-hidden', 'true');
         a.loop = true;                    // 单曲循环
-        a.preload = 'metadata';   /* 改为 metadata：自动播放被拒时不会白拉整首 9.6MB */
+        a.preload = 'auto';
         a.setAttribute('playsinline', '');
         a.setAttribute('webkit-playsinline', '');
         addEvt(a, 'error', onAudioError, false);
@@ -1687,6 +1697,7 @@ $("#enh-ok").onclick=()=>{
       applyVolume();
       if (!(opts && opts.touched === false)) {   // 公开调用 = 用户的选择
         state.touched = true;
+        state.levelTouched = true;
         writeStore();
       }
       render();
@@ -2621,7 +2632,7 @@ renderSkills();renderTpls();checkApi();renderHist();initApiPrefs();checkRenderer
 var bgm = null;
 try{
   if (typeof createBgm === "function") {
-    bgm = createBgm({ src: "music.mp3", defaultLevel: 20, duckRatio: 0.4 });
+    bgm = createBgm({ src: "music.mp3", defaultLevel: 34, duckRatio: 0.4 });
     var slot = document.getElementById("bgmSlot");
     if (slot) bgm.mount(slot);
   }
