@@ -177,6 +177,29 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   display:flex;flex-direction:column;padding:5.263cqw var(--gutter) 4.474cqw;overflow:hidden;
   --gutter:7.368cqw;--ts-title:4.079cqw;--ts-body:1.974cqw;--ts-note:1.447cqw;
   line-break:strict;word-break:break-word}
+
+/* 提示词优化 */
+.enh-btn{width:100%;margin:10px 0 8px;background:var(--panel2);border:1px solid var(--line);color:var(--gold-hi);
+  border-radius:12px;padding:11px;font-size:13.5px;cursor:pointer;font-family:var(--sans);
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:.18s}
+.enh-btn:hover{border-color:var(--gold);background:rgba(242,198,109,.08)}
+.enh-btn:disabled{opacity:.5;cursor:not-allowed}
+.enh-mask{position:fixed;inset:0;z-index:120;background:rgba(4,6,16,.74);display:none}
+.enh-mask.on{display:flex;align-items:center;justify-content:center;padding:24px}
+.enh-box{width:min(780px,100%);max-height:86vh;display:flex;flex-direction:column;background:var(--panel);
+  border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.enh-hd{display:flex;align-items:center;gap:10px}
+.enh-hd h3{font-family:var(--serif);color:var(--gold-hi);font-size:17px;flex:1;letter-spacing:.5px}
+.enh-x{background:none;border:none;color:var(--ink3);font-size:17px;cursor:pointer;padding:4px 6px}
+.enh-x:hover{color:var(--gold-hi)}
+.enh-sub{font-size:12px;color:var(--ink3);margin:8px 0 12px;line-height:1.75}
+.enh-ta{flex:1;min-height:300px;resize:vertical;background:var(--panel2);border:1px solid var(--line);
+  color:var(--ink);border-radius:12px;padding:14px;font-size:13.5px;line-height:1.9;font-family:var(--sans)}
+.enh-ta:focus{outline:none;border-color:var(--gold)}
+.enh-ta[readonly]{opacity:.82;cursor:progress}
+.enh-foot{display:flex;align-items:center;gap:10px;margin-top:14px}
+.enh-sp{flex:1}
+
 .page .pno{position:absolute;right:22px;bottom:14px;font-size:calc(1.447cqw * var(--k,1));color:var(--tsub);opacity:.45;letter-spacing:1px;font-family:var(--mono)}
 .page .pt{font-family:var(--serif);font-size:var(--ts-title);color:var(--th);font-weight:700;line-height:1.34;margin-bottom:8px;max-width:88%}
 .page .phr{width:40px;height:2px;background:linear-gradient(90deg,var(--tk),transparent);margin:10px 0 0;flex:none}
@@ -388,6 +411,10 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <input type="file" id="fileinput" accept=".txt,.md,.pdf,.markdown" multiple>
       <div class="ref-list" id="reflist"></div>
 
+      <div class="label">背景音乐（可选）</div>
+      <div id="bgmSlot"></div>
+
+      <button class="enh-btn" id="enh-btn">✨ 先帮我优化提示词</button>
       <button class="gen-btn" id="genbtn">✦ 生成 PPT</button>
       <div class="api-state" id="apistate"><span class="dot" id="apidot"></span><span id="apitext">检查服务中…</span></div>
     </div>
@@ -426,6 +453,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.3 — 先说清楚再动手</div>
+        <div class="logdate">2026-10-25</div>
+        <ul class="loglist">
+          <li><b>新增「先帮我优化提示词」</b>：点一下，AI 会把你的原始素材整理成一份更完善的提示词（补上读者、页数、主线、语气），<b>你可以直接改</b>；确认后才开始生成 PPT，不满意就重来。</li>
+          <li><b>新增背景音乐</b>：可在配置区开关与调音量；生成期间自动把音乐压低一档，出稿后平滑恢复。音频只在真正播放时才下载，不影响首屏。</li>
+          <li><b>修复一个严重缺陷</b>：主按钮「✦ 生成 PPT」此前<b>没有绑定点击事件</b>——点了完全没反应。现已修好，并改用「真点按钮」的方式重新验证通过。</li>
+          <li><b>修复</b>：流式接口在等「流结束」而不是等「完成信号」，导致部分浏览器下优化会一直转圈。</li>
+        </ul>
         <div class="logver">V1.2 — 可以不用服务器了</div>
         <div class="logdate">2026-10-24</div>
         <ul class="loglist">
@@ -483,6 +518,24 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   </div>
 </div>
 
+
+<!-- 提示词优化弹层 -->
+<div class="enh-mask" id="enh">
+  <div class="enh-box">
+    <div class="enh-hd">
+      <h3>先帮你把提示词写清楚</h3>
+      <button class="enh-x" id="enh-x" title="关闭">✕</button>
+    </div>
+    <p class="enh-sub" id="enh-sub">AI 会保留你的原始素材，补上读者、页数、主线与语气；确认后才会生成 PPT。</p>
+    <textarea id="enh-text" class="enh-ta" spellcheck="false" placeholder="优化结果会出现在这里，可直接修改…"></textarea>
+    <div class="enh-foot">
+      <button class="tbtn" id="enh-retry">↻ 重新优化</button>
+      <span class="enh-sp"></span>
+      <button class="tbtn" id="enh-cancel">取消</button>
+      <button class="tbtn primary" id="enh-ok" disabled>用这份生成 →</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 
@@ -1122,6 +1175,713 @@ function directGenerate(body){
 })(typeof window !== "undefined" ? window : globalThis);
 
 
+
+/* ===================== 通用对话流（后端 / 直连 双模式） ===================== */
+function readModelValue(){
+  let m=$("#model").value;
+  if(m==="__custom__"){const cus=$("#model-custom");m=cus?cus.value.trim():"";}
+  return m;
+}
+
+function streamChat(opts){
+  const messages=opts.messages||[];
+  const apiKey=opts.apiKey||"";
+  const baseUrl=opts.baseUrl||"";
+  const model=opts.model||"";
+  const temperature=(opts.temperature===undefined?0.5:opts.temperature);
+  const onChunk=opts.onChunk||function(){};
+
+  return new Promise(function(resolve,reject){
+    (async function(){
+      try{
+        let res, direct=!state.backend;
+        if(state.backend){
+          res=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({messages:messages,apiKey:apiKey,baseUrl:baseUrl,model:model,temperature:temperature})});
+          if(!res.ok){
+            const j=await res.json().catch(function(){return null;});
+            throw new Error((j&&j.error)||("服务器错误 "+res.status));
+          }
+        }else{
+          const url=normalizeBaseUrl(baseUrl)+"/chat/completions";
+          res=await fetch(url,{method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+            body:JSON.stringify({model:model,stream:true,temperature:temperature,messages:messages})});
+          if(!res.ok){
+            const t=await res.text().catch(function(){return "";});
+            throw new Error("接口返回 "+res.status+"："+String(t).slice(0,300));
+          }
+        }
+
+        const reader=res.body.getReader();
+        const dec=new TextDecoder();
+        let buf="", finished=false;
+        while(!finished){
+          const r=await reader.read();
+          if(r.done) break;
+          buf+=dec.decode(r.value,{stream:true});
+          let idx;
+          while((idx=buf.indexOf("\n\n"))!==-1 && !finished){
+            const evt=buf.slice(0,idx); buf=buf.slice(idx+2);
+            let evtName="", dataStr=null;
+            const lines=evt.split("\n");
+            for(let i=0;i<lines.length;i++){
+              if(lines[i].indexOf("event:")===0) evtName=lines[i].slice(6).trim();
+              else if(lines[i].indexOf("data:")===0) dataStr=lines[i].slice(5).trim();
+            }
+            if(!dataStr) continue;
+            if(direct){
+              if(dataStr==="[DONE]"){ finished=true; break; }
+              let o; try{o=JSON.parse(dataStr);}catch(e){continue;}
+              const piece=(o.choices&&o.choices[0]&&o.choices[0].delta&&o.choices[0].delta.content)||"";
+              if(piece) onChunk(piece);
+            }else{
+              let payload; try{payload=JSON.parse(dataStr);}catch(e){continue;}
+              if(evtName==="chunk"){ if(payload) onChunk(payload); }
+              else if(evtName==="error"){ throw new Error(String(payload)); }
+              else if(evtName==="done"){ finished=true; break; }
+            }
+          }
+        }
+        // 收到 done 就主动断开，不等服务端关连接（HTTP/1.1 keep-alive 下 EOF 可能永远不来）
+        try{ await reader.cancel(); }catch(e){}
+        resolve();
+      }catch(e){ reject(e); }
+    })();
+  });
+}
+
+/* ===================== 提示词优化 ===================== */
+const ENH_SYSTEM =
+  "你是资深 PPT 策划。用户会给你一份原始素材或粗略需求，请把它整理成一份更完善的 PPT 生成提示词。\n"+
+  "要求：\n"+
+  "1) 完整保留原文的事实、数据与素材，不删减、不编造、不改变原意；\n"+
+  "2) 在此基础上补充：这份 PPT 的读者是谁、希望读者看完做什么、建议页数、内容主线与分页建议、要强调的点、语气风格；\n"+
+  "3) 直接输出可用的提示词正文，用清晰的中文分条书写；不要解释你在做什么，不要写开场白或结束语；\n"+
+  "4) 篇幅 400~700 字。";
+
+async function enhancePrompt(){
+  const raw=$("#prompt").value.trim();
+  if(!raw){ toast("请先在文本框输入要生成的内容"); return; }
+  const apiKey=$("#apikey").value.trim();
+  if(!apiKey){ toast("请先填写你的 API Key"); return; }
+  const model=readModelValue();
+  if(!model){ toast("请选择或填写模型"); return; }
+  const baseUrl=$("#baseUrl").value.trim();
+
+  const mask=$("#enh"), ta=$("#enh-text"), ok=$("#enh-ok"), sub=$("#enh-sub");
+  mask.classList.add("on");
+  ta.value=""; ta.readOnly=true;
+  ok.disabled=true;
+  sub.textContent="AI 正在整理…（保留你的原始素材，补上读者、页数、主线与语气）";
+
+  let acc="";
+  try{
+    await streamChat({
+      apiKey:apiKey, baseUrl:baseUrl, model:model, temperature:0.5,
+      messages:[{role:"system",content:ENH_SYSTEM},{role:"user",content:raw}],
+      onChunk:function(piece){ acc+=piece; ta.value=acc; ta.scrollTop=ta.scrollHeight; }
+    });
+    if(!acc.trim()){ throw new Error("接口没有返回内容"); }
+    ta.readOnly=false;
+    ok.disabled=false;
+    sub.textContent="已生成，可直接在上方修改；确认后再开始生成 PPT。";
+  }catch(e){
+    ta.readOnly=false;
+    sub.textContent="优化失败："+((e&&e.message)||e)+"（可点「重新优化」再试）";
+  }
+}
+
+$("#genbtn").onclick=()=>generate();   /* 主按钮绑定（此前缺失，点了没反应） */
+$("#enh-btn").onclick=()=>enhancePrompt();
+$("#enh-retry").onclick=()=>{ if(!$("#enh").classList.contains("on")){ enhancePrompt(); } else { enhancePrompt(); } };
+$("#enh-x").onclick=()=>$("#enh").classList.remove("on");
+$("#enh-cancel").onclick=()=>$("#enh").classList.remove("on");
+$("#enh-ok").onclick=()=>{
+  const t=$("#enh-text").value.trim();
+  if(!t){ toast("内容为空"); return; }
+  state.genText=t;
+  $("#enh").classList.remove("on");
+  generate();
+};
+
+/* ===================== 背景音乐模块（独立 IIFE） ===================== */
+/*!
+ * 星火PPT · 背景音乐模块  bgm.js
+ * ---------------------------------------------------------------------------
+ * 独立 IIFE，零依赖、零外部 CSS，只向 window 暴露一个 createBgm。
+ * 不碰页面其它全局变量，不修改 DOM 结构（除了自己 mount 进去的那个控件）。
+ *
+ * 用法：
+ *   var bgm = createBgm({ src: 'music.mp3' });        // 外部文件，绝不 base64
+ *   bgm.mount(document.querySelector('#bgmSlot'));    // 渲染开关 UI
+ *   bgm.duckOn();  ... 生成完毕后 ...  bgm.duckOff(); // 生成时压低
+ *
+ * 设计铁律（见 bgm-README.md）：
+ *   1 外部 <audio> 文件 + loop
+ *   2 首次手势解锁（pointerdown/keydown/touchstart/scroll），成功即摘监听
+ *   3 静默降级：file: 不加载、play() reject / error / 解码失败全部吃掉
+ *   4 duck 用 rAF 渐变（500ms 降 / 800ms 升），绝不硬赋值
+ *   5 感知音量曲线 level/60^1.8 * 0.42，上限远离 1.0
+ *   6 touched 标记保护用户选择（localStorage，全 try/catch）
+ *   7 visibilitychange 回前台补播（iOS/Safari）
+ *   8 紧凑横排控件，用主页面 CSS 变量，不固定悬浮
+ * ---------------------------------------------------------------------------
+ */
+(function (global) {
+  'use strict';
+
+  var STYLE_ID = 'xinghuo-bgm-style';
+  var DEFAULT_STORAGE_KEY = 'xinghuoPPT_bgm';
+  var LEVEL_MAX = 60;
+  var GAIN_CEIL = 0.42;       // 混音余量：最大增益 0.42，永远不接近 1.0
+  var GESTURE_EVENTS = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+  var DUCK_DOWN_MS = 500;
+  var DUCK_UP_MS = 800;
+
+  /* ------------------------------------------------------------------ *
+   * 小工具
+   * ------------------------------------------------------------------ */
+  function num(v, d) {
+    var n = typeof v === 'number' ? v : parseFloat(v);
+    return isFinite(n) ? n : d;
+  }
+  function clamp(v, lo, hi) {
+    v = num(v, lo);
+    return v < lo ? lo : (v > hi ? hi : v);
+  }
+  function nowMs() {
+    try {
+      if (global.performance && typeof global.performance.now === 'function') return global.performance.now();
+    } catch (e) {}
+    return Date.now();
+  }
+
+  /** 感知音量曲线（第 5 条）：线性滑块 -> 近似人耳的音量 */
+  function levelToGain(level) {
+    var r = clamp(level, 0, LEVEL_MAX) / LEVEL_MAX;
+    return Math.pow(r, 1.8) * GAIN_CEIL;
+  }
+
+  /** file:// 双击打开时返回 false —— 此时模块完全不加载音频（第 3 条） */
+  function protocolOk() {
+    try {
+      var p = global.location && global.location.protocol;
+      return p === 'http:' || p === 'https:';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function addEvt(el, type, fn, opts) {
+    if (!el) return;
+    try { el.addEventListener(type, fn, opts); }
+    catch (e) { try { el.addEventListener(type, fn, false); } catch (e2) {} }
+  }
+  function removeEvt(el, type, fn, opts) {
+    if (!el) return;
+    try { el.removeEventListener(type, fn, opts); }
+    catch (e) { try { el.removeEventListener(type, fn, false); } catch (e2) {} }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 控件样式：只注入一次；颜色全部走主页面的 CSS 变量并带兜底值
+   * ------------------------------------------------------------------ */
+  var CSS = [
+    '.bgm-ctl{display:inline-flex;align-items:center;gap:10px;',
+    'padding:6px 12px;border:1px solid var(--line,rgba(255,255,255,.18));border-radius:999px;',
+    'background:var(--panel2,#17203D);color:var(--ink2,#B7BDDA);',
+    'font:inherit;font-size:12.5px;letter-spacing:1px;line-height:1;',
+    'vertical-align:middle;max-width:100%;user-select:none;-webkit-user-select:none;',
+    'transition:opacity .25s ease,border-color .25s ease}',
+    '.bgm-ctl[data-on="0"]{opacity:.62}',
+    '.bgm-ctl[data-broken="1"]{opacity:.45;cursor:not-allowed}',
+    '.bgm-ctl .bgm-label{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--ink2,#B7BDDA);transition:color .25s ease}',
+    '.bgm-ctl[data-on="1"] .bgm-label{color:var(--gold,#F2C66D)}',
+    '.bgm-ctl .bgm-switch{position:relative;flex:0 0 auto;width:34px;height:18px;padding:0;',
+    'border-radius:999px;border:1px solid var(--line,rgba(255,255,255,.18));',
+    'background:rgba(255,255,255,.08);cursor:pointer;outline:none;',
+    'transition:background .25s ease,border-color .25s ease}',
+    '.bgm-ctl .bgm-switch:focus-visible{box-shadow:0 0 0 3px rgba(242,198,109,.35)}',
+    '.bgm-ctl[data-on="1"] .bgm-switch{background:linear-gradient(180deg,var(--gold-hi,#FFD98A),var(--gold-deep,#C9943F));border-color:var(--gold,#F2C66D)}',
+    '.bgm-ctl .bgm-knob{position:absolute;top:50%;left:2px;width:12px;height:12px;border-radius:50%;',
+    'background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.45);transform:translateY(-50%);',
+    'transition:left .25s ease}',
+    '.bgm-ctl[data-on="1"] .bgm-knob{left:18px}',
+    '.bgm-ctl .bgm-slider{-webkit-appearance:none;appearance:none;width:86px;height:16px;margin:0;',
+    'background:transparent;cursor:pointer}',
+    '.bgm-ctl .bgm-slider::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:rgba(255,255,255,.16)}',
+    '.bgm-ctl .bgm-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-4px;',
+    'border-radius:50%;background:var(--gold,#F2C66D);border:1px solid var(--gold-deep,#C9943F)}',
+    '.bgm-ctl .bgm-slider::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.16)}',
+    '.bgm-ctl .bgm-slider::-moz-range-thumb{width:12px;height:12px;border-radius:50%;',
+    'background:var(--gold,#F2C66D);border:1px solid var(--gold-deep,#C9943F)}',
+    '.bgm-ctl[data-on="0"] .bgm-slider{opacity:.5}',
+    '.bgm-ctl .bgm-val{min-width:16px;text-align:right;color:var(--ink3,#828AAF);',
+    'font-size:11.5px;font-variant-numeric:tabular-nums}',
+    '.bgm-ctl .bgm-player{display:none}'
+  ].join('');
+
+  function injectStyle(doc) {
+    try {
+      if (!doc || doc.getElementById(STYLE_ID)) return;
+      var st = doc.createElement('style');
+      st.id = STYLE_ID;
+      st.type = 'text/css';
+      st.appendChild(doc.createTextNode(CSS));
+      (doc.head || doc.documentElement).appendChild(st);
+    } catch (e) { /* 注入失败也不能影响页面 */ }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 工厂
+   * ------------------------------------------------------------------ */
+  function createBgm(options) {
+    var opt = options || {};
+    var doc = opt.document || global.document;
+
+    var src = typeof opt.src === 'string' ? opt.src : '';
+    var storageKey = (typeof opt.storageKey === 'string' && opt.storageKey) ? opt.storageKey : DEFAULT_STORAGE_KEY;
+    var defaultLevel = clamp(num(opt.defaultLevel, 20), 0, LEVEL_MAX);
+    var duckRatio = clamp(num(opt.duckRatio, 0.4), 0, 1);
+
+    /* ---- 状态（第 6 条：touched 是总闸） ---- */
+    var state = { enabled: true, level: defaultLevel, touched: false };
+
+    var audio = null;          // HTMLAudioElement（惰性创建，隐藏节点）
+    var audioBroken = false;   // 加载/解码失败后置位，之后安静地当作没有音乐
+    var ducked = false;
+    var duckFactor = 1;        // 当前实际 duck 系数（跟着 rAF 走）
+    var duckRAF = 0;
+    var duckTimer = 0;
+    var wantPlay = false;      // 「应该在播」的意图，供 visibilitychange 补播使用
+    var unlocked = false;      // 是否已经发生过用户手势
+    var gestureOn = false;     // 四个手势监听是否还挂着
+    var visibilityBound = false;
+    var visResumes = 0;        // 回前台补播次数（仅用于自测观测，无副作用）
+    var volumeWasSet = 0;      // applyVolume 实际写入次数（仅自测观测）
+    var destroyed = false;
+
+    var hostEl = null, rootEl = null, switchEl = null, sliderEl = null, valEl = null;
+
+    /* ---------------- localStorage：全部 try/catch（隐私模式会抛） ---------------- */
+    function readStore() {
+      try {
+        if (!global.localStorage) return null;
+        var raw = global.localStorage.getItem(storageKey);
+        if (!raw) return null;
+        var obj = JSON.parse(raw);
+        return (obj && typeof obj === 'object') ? obj : null;
+      } catch (e) { return null; }
+    }
+    function writeStore() {
+      try {
+        if (!global.localStorage) return;
+        global.localStorage.setItem(storageKey, JSON.stringify({
+          enabled: !!state.enabled,
+          level: state.level,
+          touched: !!state.touched
+        }));
+      } catch (e) { /* 隐私模式 / 配额满：忽略 */ }
+    }
+
+    /**
+     * 第 6 条核心：只有 touched === true 才采信存档。
+     * 否则一律用默认值（enabled = true, level = defaultLevel）——
+     * 这样以后主 Agent 改默认音量，也不会翻掉老用户已经手动调过的值。
+     */
+    function applyInitialState() {
+      var saved = readStore();
+      if (saved && saved.touched === true) {
+        state.enabled = saved.enabled !== false;
+        state.level = clamp(num(saved.level, defaultLevel), 0, LEVEL_MAX);
+        state.touched = true;
+      } else {
+        state.enabled = true;
+        state.level = defaultLevel;
+        state.touched = false;
+      }
+    }
+
+    /* ---------------- 音量 ---------------- */
+    function applyVolume() {
+      if (!audio) return;
+      var v = clamp(levelToGain(state.level) * duckFactor, 0, 1);
+      try { audio.volume = v; volumeWasSet++; } catch (e) {}
+    }
+
+    function requestFrame(fn) {
+      try {
+        if (global.requestAnimationFrame) return global.requestAnimationFrame(fn);
+      } catch (e) {}
+      return 0;
+    }
+
+    /** 第 4 条：rAF 平滑插值，绝不直接赋 audio.volume（避免「啪」的爆音） */
+    function animateDuckTo(target, duration) {
+      target = clamp(target, 0, 1);
+      if (duckRAF) { try { global.cancelAnimationFrame(duckRAF); } catch (e) {} duckRAF = 0; }
+      if (duckTimer) { try { global.clearTimeout(duckTimer); } catch (e) {} duckTimer = 0; }
+
+      var from = duckFactor;
+      if (!audio || Math.abs(target - from) < 0.0005) {
+        duckFactor = target;
+        applyVolume();
+        return;
+      }
+      var t0 = nowMs();
+      var step = function () {
+        duckRAF = 0;
+        if (destroyed) return;
+        var p = clamp((nowMs() - t0) / (duration > 0 ? duration : 1), 0, 1);
+        var e = p * p * (3 - 2 * p);            // smoothstep：两端一阶导为 0，最不刺耳
+        duckFactor = from + (target - from) * e;
+        applyVolume();
+        if (p < 1) {
+          duckRAF = requestFrame(step);
+          if (!duckRAF) duckTimer = global.setTimeout(step, 16);   // 没有 rAF 的环境兜底
+        } else {
+          duckFactor = target;
+          applyVolume();
+        }
+      };
+      duckRAF = requestFrame(step);
+      if (!duckRAF) duckTimer = global.setTimeout(step, 16);
+    }
+
+    /* ---------------- 音频元素（第 1 条 + 第 3 条） ---------------- */
+    function ensureAudio() {
+      if (destroyed) return null;
+      if (audio) return audio;
+      if (audioBroken) return null;
+      if (!src) return null;              // 没给地址：安静地没有音乐
+      if (!protocolOk()) return null;     // file:// 双击打开：完全不加载（第 3 条）
+      try {
+        var a = doc.createElement('audio');
+        a.setAttribute('data-bgm-player', '1');
+        a.className = 'bgm-player';
+        a.setAttribute('aria-hidden', 'true');
+        a.loop = true;                    // 单曲循环
+        a.preload = 'auto';
+        a.setAttribute('playsinline', '');
+        a.setAttribute('webkit-playsinline', '');
+        addEvt(a, 'error', onAudioError, false);
+        a.src = src;
+        // 放进 DOM（隐藏）：iOS 更稳，也方便调试时在 devtools 里看到它
+        if (doc && doc.body) { try { doc.body.appendChild(a); } catch (e) {} }
+        audio = a;
+        applyVolume();                    // 元素一出生就带上音量，避免 0 -> target 的跳变
+        try { a.load(); } catch (e) {}
+      } catch (e) {
+        audio = null;
+        audioBroken = true;
+      }
+      return audio;
+    }
+
+    function onAudioError() {
+      // 解码失败 / 404 / 格式不支持：静默当「没有音乐」，不提示、不抛错
+      audioBroken = true;
+      try { if (audio) audio.pause(); } catch (e) {}
+      try { if (audio && audio.parentNode) audio.parentNode.removeChild(audio); } catch (e) {}
+      audio = null;
+      render();
+    }
+
+    /* ---------------- 播放控制（第 3 条：所有失败都吃掉） ---------------- */
+    function attemptPlay(done) {
+      var finish = function (ok) { if (typeof done === 'function') { try { done(ok); } catch (e) {} } };
+      if (destroyed || !state.enabled) return finish(false);
+      if (!protocolOk()) return finish(false);
+      var a = ensureAudio();
+      if (!a) return finish(false);
+      applyVolume();
+      var p;
+      try { p = a.play(); }
+      catch (e) { return finish(false); }
+      if (p && typeof p.then === 'function') {
+        p.then(function () { finish(true); }, function () { finish(false); });   // reject：安静地不给音乐
+      } else {
+        finish(true);   // 老浏览器返回 undefined，假定成功
+      }
+    }
+
+    function isPlaying() {
+      try { return !!(audio && !audio.paused && !audio.ended); } catch (e) { return false; }
+    }
+
+    function play() {
+      if (destroyed) return false;
+      if (!state.enabled) return false;            // 内部先检查 enabled
+      wantPlay = true;
+      if (!unlocked) attachGesture();              // 还没解锁：继续等第一个手势
+      attemptPlay(null);
+      return true;
+    }
+
+    function pause() {
+      wantPlay = false;
+      detachGesture();        // 调用方明确要求停：不再等手势，下次 play() 会重新布防
+      try { if (audio) audio.pause(); } catch (e) {}
+    }
+
+    /* ---------------- 手势解锁（第 2 条） ---------------- */
+    function attachGesture() {
+      if (gestureOn || unlocked || destroyed) return;
+      if (!protocolOk()) return;   // file: 下根本不会有声音，挂监听没有意义
+      gestureOn = true;
+      for (var i = 0; i < GESTURE_EVENTS.length; i++) {
+        addEvt(global, GESTURE_EVENTS[i], onGesture, { passive: true });
+      }
+    }
+    function detachGesture() {
+      if (!gestureOn) return;
+      gestureOn = false;
+      for (var i = 0; i < GESTURE_EVENTS.length; i++) {
+        removeEvt(global, GESTURE_EVENTS[i], onGesture, { passive: true });
+      }
+    }
+    function startFromUser() {
+      unlocked = true;
+      if (!state.enabled) { detachGesture(); return; }
+      if (!protocolOk() || !src) { detachGesture(); return; }   // 注定没有音乐：不留常驻监听
+      attemptPlay(function (ok) {
+        // 成功后立刻把四个监听全部摘掉；失败才留着等下一次手势重试
+        if (ok || destroyed) detachGesture();
+      });
+    }
+    function onGesture(ev) {
+      if (destroyed) return;
+      unlocked = true;
+      var inside = false;
+      try { inside = !!(rootEl && ev && ev.target && rootEl.contains(ev.target)); } catch (e) {}
+      if (inside) {
+        // 点的是我自己控件的开关/滑杆：交给控件自己的 click/input 处理，
+        // 免得「用户想关掉音乐，pointerdown 先响半秒」。
+        detachGesture();
+        return;
+      }
+      startFromUser();
+    }
+
+    /* ---------------- iOS/Safari 回前台补播（第 7 条） ---------------- */
+    function bindVisibility() {
+      if (visibilityBound || destroyed) return;
+      visibilityBound = true;
+      addEvt(doc, 'visibilitychange', onVisibility, false);
+    }
+    function onVisibility() {
+      if (destroyed) return;
+      try {
+        if (doc.visibilityState && doc.visibilityState !== 'visible') return;
+      } catch (e) {}
+      if (!wantPlay || !state.enabled) return;
+      if (!audio) return;                  // 从没加载过就别在后台偷偷拉文件
+      visResumes++;
+      attemptPlay(null);                   // .play().catch() 等价物：内部已全部吞掉
+    }
+
+    /* ---------------- 开关 / 音量（第 8 条 UI 的交互） ---------------- */
+    function setLevel(n, opts) {
+      state.level = clamp(num(n, state.level), 0, LEVEL_MAX);
+      applyVolume();
+      if (!(opts && opts.touched === false)) {   // 公开调用 = 用户的选择
+        state.touched = true;
+        writeStore();
+      }
+      render();
+      return state.level;
+    }
+
+    function setEnabled(v, opts) {
+      state.enabled = !!v;
+      if (!(opts && opts.touched === false)) {
+        state.touched = true;
+        writeStore();
+      }
+      if (!state.enabled) {
+        pause();
+        detachGesture();
+      } else {
+        if (unlocked) {
+          wantPlay = true;
+          attemptPlay(function (ok) { if (ok) detachGesture(); });
+        } else {
+          attachGesture();
+        }
+      }
+      render();
+      return state.enabled;
+    }
+
+    function onSwitchClick(ev) {
+      try { if (ev && ev.preventDefault) ev.preventDefault(); } catch (e) {}
+      unlocked = true;
+      setEnabled(!state.enabled);              // touched = true
+      if (state.enabled) attemptPlay(function (ok) { if (ok) detachGesture(); });
+    }
+
+    function onSliderInput(ev) {
+      var raw = (ev && ev.target) ? ev.target.value : state.level;
+      unlocked = true;
+      setLevel(num(raw, state.level));         // touched = true
+      if (state.enabled) attemptPlay(function (ok) { if (ok) detachGesture(); });
+    }
+
+    /* ---------------- 渲染 ---------------- */
+    function render() {
+      if (!rootEl) return;
+      try {
+        rootEl.setAttribute('data-on', state.enabled ? '1' : '0');
+        rootEl.setAttribute('data-broken', audioBroken ? '1' : '0');
+        if (switchEl) switchEl.setAttribute('aria-checked', state.enabled ? 'true' : 'false');
+        if (sliderEl) {
+          var s = String(state.level);
+          if (sliderEl.value !== s) sliderEl.value = s;
+        }
+        if (valEl) valEl.textContent = String(state.level);
+        rootEl.title = audioBroken ? '背景音乐不可用' : (state.enabled ? '背景音乐：开' : '背景音乐：关');
+      } catch (e) {}
+    }
+
+    function mount(el) {
+      if (destroyed) return null;
+      var host = el;
+      if (typeof host === 'string') {
+        try { host = doc.querySelector(host); } catch (e) { host = null; }
+      }
+      if (!host || typeof host.appendChild !== 'function') return null;
+      try {
+        injectStyle(doc);
+        if (rootEl && rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
+
+        rootEl = doc.createElement('div');
+        rootEl.className = 'bgm-ctl';
+        rootEl.setAttribute('data-bgm-ui', '1');
+        rootEl.innerHTML =
+          '<span class="bgm-label">♪ 背景音乐</span>' +
+          '<button class="bgm-switch" type="button" role="switch" aria-checked="true" aria-label="背景音乐开关">' +
+            '<span class="bgm-knob"></span>' +
+          '</button>' +
+          '<input class="bgm-slider" type="range" min="0" max="60" step="1" value="20" aria-label="背景音乐音量">' +
+          '<span class="bgm-val">20</span>';
+
+        switchEl = rootEl.querySelector('.bgm-switch');
+        sliderEl = rootEl.querySelector('.bgm-slider');
+        valEl = rootEl.querySelector('.bgm-val');
+
+        addEvt(switchEl, 'click', onSwitchClick, false);
+        addEvt(sliderEl, 'input', onSliderInput, false);
+        addEvt(sliderEl, 'change', onSliderInput, false);
+
+        host.appendChild(rootEl);
+        hostEl = host;
+        bindVisibility();
+        render();
+        return rootEl;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getState() {
+      var vol = null;
+      try { vol = audio ? audio.volume : null; } catch (e) {}
+      return {
+        src: src,
+        storageKey: storageKey,
+        defaultLevel: defaultLevel,
+        duckRatio: duckRatio,
+        enabled: state.enabled,
+        level: state.level,
+        touched: state.touched,
+        ducked: ducked,
+        duckFactor: duckFactor,
+        gain: levelToGain(state.level),
+        volume: vol,
+        isPlaying: isPlaying(),
+        wantPlay: wantPlay,
+        unlocked: unlocked,
+        hasAudio: !!audio,
+        audioBroken: audioBroken,
+        protocolOk: protocolOk(),
+        gestureListening: gestureOn,
+        visibilityResumes: visResumes,
+        volumeWasSet: volumeWasSet
+      };
+    }
+
+    function destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      detachGesture();
+      if (visibilityBound) {
+        removeEvt(doc, 'visibilitychange', onVisibility, false);
+        visibilityBound = false;
+      }
+      if (duckRAF) { try { global.cancelAnimationFrame(duckRAF); } catch (e) {} duckRAF = 0; }
+      if (duckTimer) { try { global.clearTimeout(duckTimer); } catch (e) {} duckTimer = 0; }
+      try {
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute('src');
+          if (typeof audio.load === 'function') audio.load();
+          if (audio.parentNode) audio.parentNode.removeChild(audio);
+        }
+      } catch (e) {}
+      audio = null;
+      try {
+        if (rootEl) {
+          rootEl.innerHTML = '';
+          if (rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
+        }
+      } catch (e) {}
+      rootEl = null; switchEl = null; sliderEl = null; valEl = null; hostEl = null;
+      wantPlay = false;
+    }
+
+    /* ---------------- 初始化 ---------------- */
+    applyInitialState();
+
+    // 第 2 条：模块一创建（开关为开）就开始等第一个手势，不需要外部再调 play()。
+    // 处理顺序与 pause() 对称：pause() 会摘掉监听，play() 会重新布防。
+    if (state.enabled) {
+      wantPlay = true;
+      attachGesture();
+    }
+
+    /* ---------------- 对外 API（每个方法都兜一层，绝不把异常抛给主页面） ---------------- */
+    var api = {
+      mount: function (el) { try { return mount(el); } catch (e) { return null; } },
+      play: function () { try { return play(); } catch (e) { return false; } },
+      pause: function () { try { pause(); } catch (e) {} },
+      duckOn: function () { try { ducked = true; animateDuckTo(duckRatio, DUCK_DOWN_MS); } catch (e) {} },
+      duckOff: function () { try { ducked = false; animateDuckTo(1, DUCK_UP_MS); } catch (e) {} },
+      setLevel: function (n, opts) { try { return setLevel(n, opts); } catch (e) { return state.level; } },
+      getLevel: function () { return state.level; },
+      isPlaying: function () { try { return isPlaying(); } catch (e) { return false; } },
+      setEnabled: function (v, opts) { try { return setEnabled(v, opts); } catch (e) { return state.enabled; } },
+      isEnabled: function () { return state.enabled; },
+      destroy: function () { try { destroy(); } catch (e) {} },
+
+      /* ---- 以下为便于调试/自测的附加接口（不影响上面约定的契约） ---- */
+      getState: function () { try { return getState(); } catch (e) { return null; } },
+      getGain: function () { return levelToGain(state.level); },
+      getAudio: function () { return audio; },
+      isDucked: function () { return ducked; },
+      unlockForTest: function () { unlocked = true; }   // 仅测试页使用
+    };
+
+    return api;
+  }
+
+  /* 只往 window 上挂一个 createBgm */
+  try { global.createBgm = createBgm; } catch (e) {}
+  try { global.createBgm.levelToGain = levelToGain; global.createBgm.LEVEL_MAX = LEVEL_MAX; } catch (e) {}
+
+})(typeof window !== 'undefined' ? window : this);
+
+
 /* ---- 状态检查 ---- */
 async function checkApi(){
   const hasKeyInBox=$("#apikey").value.trim();
@@ -1145,7 +1905,7 @@ async function checkApi(){
 
 /* ---- 生成 ---- */
 async function generate(){
-  const text=$("#prompt").value.trim();
+  const text=((state.genText||"").trim()||$("#prompt").value.trim());
   if(!text){toast("请先输入要生成的内容");return;}
   if(generating)return;
   generating=true;setUiGenerating(true);
@@ -1198,6 +1958,7 @@ async function generate(){
     toast("生成失败："+e.message);
     resetCanvas();
   }
+  state.genText="";
   generating=false;setUiGenerating(false);
   $("#progressbar").classList.remove("show");
   if(state.doctor)persist();
@@ -1853,6 +2614,16 @@ function showCustomModel(show){
 }
 
 renderSkills();renderTpls();checkApi();renderHist();initApiPrefs();checkRenderer();
+
+/* ---- 背景音乐 ---- */
+var bgm = null;
+try{
+  if (typeof createBgm === "function") {
+    bgm = createBgm({ src: "music.mp3", defaultLevel: 20, duckRatio: 0.4 });
+    var slot = document.getElementById("bgmSlot");
+    if (slot) bgm.mount(slot);
+  }
+}catch(e){ /* 音乐失败绝不影响主功能 */ }
 </script>
 </body>
 </html>
