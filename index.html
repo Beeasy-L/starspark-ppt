@@ -1648,8 +1648,16 @@ function readThemeColors(tplId){
     muted: hex(getComputedStyle(pn).color) || "B7BDDA",
     accent: hex(getComputedStyle(li,"::before").backgroundColor) || hex(getComputedStyle(pt).color) || "F2C66D"
   };
+  /* 导出字体策略：
+     浏览器拿不到用户本机字体文件的字节，真嵌入做不到（除非把 5~15MB 中文字体打进页面，
+     那会毁掉「单文件、打开即用」）。所以改成**目标机必然存在的系统字体**——
+     Windows / WPS 中文机一定装了这几个，换台电脑打开不会走样。
+     代价：macOS / Linux 上仍会退字体，已在 README 如实标注。 */
   const fam=(getComputedStyle(pt).fontFamily||"").split(",")[0].replace(/["']/g,"").trim();
-  if(fam) out.fontTitle=fam;
+  const isKai   = /kai|楷/i.test(fam);
+  const isSerif = /serif|song|simsun|sung|宋|明体|mincho/i.test(fam);
+  out.fontTitle = isKai ? "KaiTi" : (isSerif ? "SimSun" : "Microsoft YaHei");
+  out.fontText  = "Microsoft YaHei";
   wrap.remove();
   return out;
 }
