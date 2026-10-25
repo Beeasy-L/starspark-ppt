@@ -104,8 +104,8 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .sw2{background:linear-gradient(160deg,#F7F8FC,#E6EAF4)}
 .sw3{background:linear-gradient(160deg,#0f3d34,#17614e)}
 .sw4{background:linear-gradient(160deg,#1a1a2e,#24243e)}
-.sw5{background:linear-gradient(160deg,#2a1b3d,#3d235e)}
-.sw6{background:linear-gradient(160deg,#0c2d48,#14567a)}
+.sw5 {background:linear-gradient(160deg,#2B1E14,#432E1C 55%,#231810)}
+.sw6 {background:linear-gradient(165deg,#F2F7FA,#DAE7EF)}
 
 /* 上传 */
 .file-drop{margin-top:7px;border:1.5px dashed var(--line);border-radius:12px;padding:13px;text-align:center;
@@ -178,8 +178,8 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .theme-t2{--tk:#5E7BC4;--th:#26335c;--tsub:#6b7a9e;--tcard:#ffffff;--tborder:#e2e7f2;--tp:#4a5678;--tcardh:#E8915B;--bg:linear-gradient(160deg,#F7F8FC,#EEF1FA 70%,#E6EAF4);--deco:#E8915B}
 .theme-t3{--tk:#a8e0c2;--th:#eafaf1;--tsub:#b5dac9;--tcard:rgba(255,255,255,.05);--tborder:rgba(168,224,194,.3);--tp:#cfe8db;--tcardh:#a8e0c2;--bg:linear-gradient(160deg,#0f3d34,#17614e 60%,#123c33);--deco:#4ecda8}
 .theme-t4{--tk:#d4af55;--th:#f2e6c4;--tsub:#b9ad8a;--tcard:rgba(25,25,53,.6);--tborder:rgba(212,175,85,.3);--tp:#cfc8b0;--tcardh:#d4af55;--bg:linear-gradient(160deg,#1a1a2e,#24243e 60%,#191935);--deco:#d4af55}
-.theme-t5{--tk:#c8a8f0;--th:#f2e8ff;--tsub:#cbb8e8;--tcard:rgba(255,255,255,.05);--tborder:rgba(200,168,240,.3);--tp:#d9c8f2;--tcardh:#c8a8f0;--bg:linear-gradient(160deg,#2a1b3d,#3d235e 55%,#241637);--deco:#c8a8f0}
-.theme-t6{--tk:#9fd4ff;--th:#eaf6ff;--tsub:#b8d8f2;--tcard:rgba(255,255,255,.05);--tborder:rgba(140,200,255,.28);--tp:#cfe6f5;--tcardh:#9fd4ff;--bg:linear-gradient(160deg,#0c2d48,#14567a 60%,#0a2740);--deco:#9fd4ff}
+.theme-t5{--tk:#E0A96D;--th:#FFE2B8;--tsub:#C9B79A;--tcard:rgba(255,255,255,.05);--tborder:rgba(224,169,109,.28);--tp:#E8DAC6;--tcardh:#E0A96D;--bg:linear-gradient(160deg,#2B1E14,#432E1C 55%,#231810);--deco:#E0A96D}
+.theme-t6{--tk:#2E6E8E;--th:#12303F;--tsub:#5B7C8D;--tcard:#FFFFFF;--tborder:#D7E3EA;--tp:#2C4552;--tcardh:#2E6E8E;--bg:linear-gradient(165deg,#F2F7FA,#E4EEF4 70%,#DAE7EF);--deco:#2E6E8E}
 
 /* ---- 排版内核：字阶 2.1/1/0.73 · 8px 网格 · 统一 gutter ---- */
 .page{position:absolute;inset:0;font-family:var(--sans);background:var(--bg);
@@ -717,6 +717,567 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .sw11{background:linear-gradient(160deg,#3B4A66,#4B5E82 55%,#303C55)}
 .sw12{background:linear-gradient(160deg,#F6EAD2,#EFDFBE 66%,#E5D2A8)}
 
+
+/* ============ 装饰系统（12 母题 + 图标库） ============ */
+/* ============================================================================
+   星火PPT · 图形装饰层 decorations.css
+   ----------------------------------------------------------------------------
+   给 12 套模板各做一个"看得见的视觉母题"，外加 3 个通用装饰件。
+   全部零外部资源：只用 CSS 硬边渐变 / 背景分层 / clip-path / mask / 伪元素。
+
+   ── 与《设计规范》第 5 章「装饰纪律」的对齐 ──────────────────────────────
+   · edge-geometry（贴边几何簇）：每个母题只在角落/页边放 1 组，且必须触边
+     （形状被画布边缘裁切），不平铺成背景。
+   · rule / tick-marks（细规则线、页边刻度、页眉细线）：用作页脚带与页边刻度、
+     标题下短横、页码基线；绝不闭合成框。
+   · field-block（色场区块）：色带一律方角无描边、硬边，不做玻璃卡/阴影容器。
+   · 禁用项自查：无 3D、无弥散阴影、无发光、无玻璃拟态、无模糊光晕；
+     形状填充一律硬边（软过渡只出现在"遮罩"上，用途是把装饰挡在正文之外，
+     不是装饰本身）；一页只用该模板自己的一个强调色（--dx-ink，见下方说明）；
+     不把强调色当底色，可见面积控制在 ≤15%。
+   · 留白纪律：装饰全部 position:absolute、不参与排版，绝不挤走内容；
+     只落在规划留白里（页边、页脚带、四角），正文区里没有任何实体装饰。
+
+   ── 与 templates.css 的关系 ────────────────────────────────────────────────
+   templates.css 已占用 --deco / --deco-style / --deco-w / --deco-h / --deco-bg
+   / --deco-r / --deco-cbw / --deco-cbh / --deco-cbbg / --deco-foot。
+   本文件一律用 --dx-* 前缀，只额外占用一个 --deco-on（总开关）。
+   class 只用 motif-* / deco-corner / deco-title-mark / deco-footer-rule，
+   与既有的 .deco（封面层）、.deco-rule/.deco-hairline/.deco-block/.deco-none 不冲突。
+   尺寸不写死 px：优先用容器单位 cqw，随字号的用小节/标题字号变量 --ts-*。
+
+   ── 五条硬约束怎么落实 ────────────────────────────────────────────────────
+   1) 零外部资源：无图片、无 CDN、无 base64，全部是渐变与几何。
+   2) 不挡字：装饰画在 .page::before / .page::after 上并 z-index:-1（比正文更靠
+      下层），再用 --dx-safe 系列遮罩把装饰关在四周空白带里。
+   3) 不抢戏：地面纹理 10%~20% 不透明度，主角图形 20%~34%，一页一个色相。
+   4) 必须可关：--deco-on:1（只定义在 :root）。所有装饰层不透明度都写成
+      calc(var(--deco-on,1) * X)；没挂 motif-* 的 .page 不会被命中（默认 opacity:0）。
+   5) 深浅通吃：颜色走 var(--dx-ink)（默认=模板 --tk），没有 #fff/#000 硬编码。
+      模板方可给 .theme-tN 追加 `--deco-motif` 与 `--dx-ink2` 做二次定制。
+
+   ── 页面坐标系（16:9，画布 960×540，1cqw=9.6px；下面按 % 描述）──────────
+     正文块        x 7.368 ~ 92.632 ，y 9.35% ~ 92.05%
+     标题可达右界  x <= 84%（.pt 的 max-width:88%）
+     收束句        y ~85% ~ 92% ，文字右界 x <= 84.2%
+     页码 .pno     x 87 ~ 96.5% ，y 93.6 ~ 98.6%
+     → 可用空白：左/右页边条、顶部窄带、页脚带 y>92%、右上角块(x>84)、右下角块。
+   ========================================================================== */
+
+/* ==========================================================================
+   0. 总开关
+   ========================================================================== */
+:root { --deco-on: 1; }
+
+/* ==========================================================================
+   1. 调色板 + 空白带遮罩
+   ========================================================================== */
+.page{
+  /* 一页一个强调色：默认 ink2 与 ink 同色。
+     模板方若要第二色，请自行覆写 --dx-ink2 为同色系的浅阶/深阶（不要高饱和异色）。 */
+  --dx-ink: var(--tk);
+  --dx-ink2: var(--dx-ink);
+
+  /* 遮罩多层是「并集」。Chromium 不支持 mask-composite 的 subtract/intersect
+     （本机实测无效），所以这里不做"抠洞"，只做"并集 + 向正文渐隐"；
+     装饰不越界靠形状几何 + 触边设计来保证。 */
+  --dx-corner-tr: radial-gradient(26% 46% at 100% 0, #000 0 60%, rgba(0,0,0,.45) 84%, transparent 100%);
+  --dx-corner-br: radial-gradient(24% 44% at 100% 100%, #000 0 58%, rgba(0,0,0,.45) 82%, transparent 100%);
+  /* 页脚带：y>95% 满强度，到收束句底部剩 45%，到收束句顶部(y≈85%)只剩 6% */
+  --dx-band-b: linear-gradient(to top, #000 0 5%, rgba(0,0,0,.45) 7.2%, rgba(0,0,0,.22) 10%, rgba(0,0,0,.06) 16%, transparent 26%);
+
+  --dx-safe:
+    linear-gradient(to left,  #000 0 4.5%, rgba(0,0,0,.28) 7%, transparent 10.5%),
+    linear-gradient(to right, #000 0 4%,   rgba(0,0,0,.25) 6.5%, transparent 9.5%),
+    var(--dx-band-b),
+    linear-gradient(to bottom, #000 0 3.5%, rgba(0,0,0,.30) 6%, transparent 10%),
+    var(--dx-corner-tr);
+
+  --dx-safe-tr: var(--dx-corner-tr);
+  --dx-safe-br: var(--dx-corner-br);
+  --dx-safe-b:  var(--dx-band-b);
+
+  /* 字号变量兜底（真实工程里由 index.html 的层级表给出；这里退回当前实测值） */
+  --ts-title: 4.079cqw; --ts-body: 1.974cqw; --ts-note: 1.447cqw; --ts-heading: 2.8125cqw;
+}
+
+/* ==========================================================================
+   2. 装饰层底座
+   ========================================================================== */
+.page::before,
+.page::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;                       /* 未挂母题 = 什么都不画 */
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: auto;
+}
+.page[class*="motif-"]{ isolation: isolate; }
+
+/* ==========================================================================
+   3. 十二个母题
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   t1 长夜星火 · 星轨  [星点散布 + 右上同心星轨 + 左下流星划痕，全部触边]
+   -------------------------------------------------------------------------- */
+.page.motif-starfield::before{
+  opacity: calc(var(--deco-on,1) * .30);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: repeat, repeat, no-repeat, no-repeat;
+  background-size: 8.6cqw 6.8cqw, 13.2cqw 10.4cqw, 22cqw .3cqw, 22cqw .3cqw;
+  background-image:
+    radial-gradient(circle .46cqw at 30% 40%, var(--dx-ink) 0 100%, transparent),
+    radial-gradient(circle .66cqw at 68% 62%, var(--dx-ink2) 0 100%, transparent),
+    linear-gradient(to right, transparent 0 34%, var(--dx-ink) 34% 86%, transparent 86%),
+    linear-gradient(to right, transparent 0 46%, var(--dx-ink) 46% 74%, transparent 74%);
+  background-position: 0 0, 0 0, left -6cqw bottom 6.6cqw, left -3cqw bottom 5.2cqw;
+}
+.page.motif-starfield::after{
+  opacity: calc(var(--deco-on,1) * .42);
+  -webkit-mask-image: var(--dx-safe-tr); mask-image: var(--dx-safe-tr);
+  background-image:
+    repeating-radial-gradient(circle at 100% 0,
+      transparent 0 2.9cqw, var(--dx-ink) 2.9cqw 3.18cqw),
+    radial-gradient(circle 1.7cqw at 88.5% 11%, var(--dx-ink2) 0 100%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   t2 月白清光 · 月相  [右下破框月盘（被右边缘裁切）+ 一圈细描边弧 + 页脚细纹]
+   -------------------------------------------------------------------------- */
+.page.motif-moon::before{
+  opacity: calc(var(--deco-on,1) * .16);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 30cqw .16cqw, 30cqw .16cqw;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink2), var(--dx-ink2));
+  background-position: left 0 top 4.2cqw, left 0 top 4.9cqw;
+}
+.page.motif-moon::after{
+  opacity: calc(var(--deco-on,1) * .30);
+  -webkit-mask-image: var(--dx-safe-br); mask-image: var(--dx-safe-br);
+  background-image:
+    repeating-linear-gradient(to bottom, var(--dx-ink) 0 .12cqw, transparent .12cqw 2.1cqw),
+    radial-gradient(circle 13cqw at 99% 92%, var(--dx-ink2) 0 99%, transparent 100%),
+    radial-gradient(circle 19cqw at 99% 92%, transparent 0 98.7%, var(--dx-ink) 99.2% 99.8%, transparent 100%);
+}
+
+/* --------------------------------------------------------------------------
+   t3 青峰林海 · 山峦  [两层折线剪影压在底边，右端止于 88% 给页码净空]
+   -------------------------------------------------------------------------- */
+.page.motif-ridge::before{
+  right: 8%;
+  opacity: calc(var(--deco-on,1) * .15);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-image: linear-gradient(var(--dx-ink), var(--dx-ink));
+  clip-path: polygon(0 100%, 0 88%, 8% 80%, 16% 87%, 25% 74%, 34% 85%, 44% 79%,
+                     54% 86%, 63% 77%, 72% 85%, 82% 75%, 91% 84%, 100% 78%, 100% 100%);
+}
+.page.motif-ridge::after{
+  right: 12%;
+  opacity: calc(var(--deco-on,1) * .28);
+  -webkit-mask-image: var(--dx-safe-b); mask-image: var(--dx-safe-b);
+  background-image: linear-gradient(var(--dx-ink), var(--dx-ink));
+  clip-path: polygon(0 100%, 0 95%, 7% 90%, 15% 95%, 24% 88%, 33% 94%, 43% 89%,
+                     52% 95%, 62% 88%, 71% 94%, 81% 87%, 90% 93%, 100% 89%, 100% 100%);
+}
+
+/* --------------------------------------------------------------------------
+   t4 鎏金案牍 · 印章  [贴右上角的开放直角双线框（触上边与右边）+ 左页边书脊双线]
+   -------------------------------------------------------------------------- */
+.page.motif-seal::before{
+  opacity: calc(var(--deco-on,1) * .16);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat, no-repeat;
+  background-size: .1cqw 100%, .1cqw 100%;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink));
+  background-position: left 3.1cqw top 0, left 4.1cqw top 0;
+}
+.page.motif-seal::after{
+  opacity: calc(var(--deco-on,1) * .34);
+  -webkit-mask-image: var(--dx-safe-tr); mask-image: var(--dx-safe-tr);
+  background-repeat: no-repeat;
+  background-size:
+    13cqw .3cqw, .3cqw 13cqw,       /* 外框：横笔触右边、竖笔触上边 */
+    13cqw .14cqw, .14cqw 13cqw,     /* 内框：细一档，错开 0.7cqw */
+    1.8cqw 1.8cqw, 1.8cqw .14cqw;   /* 印点 + 一撇压角 */
+  background-position:
+    right 0 top 3.4cqw, right 3.4cqw top 0,
+    right 0 top 4.1cqw, right 4.1cqw top 0,
+    right 6.4cqw top 6.4cqw, right 6.4cqw top 8.4cqw;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink2), var(--dx-ink2)),
+    linear-gradient(var(--dx-ink2), var(--dx-ink2)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink));
+}
+
+/* --------------------------------------------------------------------------
+   t5 琥珀长夜 · 雾带  [硬边方角色场带：三条不同进深的横带，触左右页边]
+   （不用模糊/光晕——软边光斑属于规范明令禁止的弥散效果）
+   -------------------------------------------------------------------------- */
+.page.motif-mist::before{
+  opacity: calc(var(--deco-on,1) * .17);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: 34cqw 8.6cqw, 22cqw 5.2cqw, 28cqw 6.6cqw;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink));
+  background-position: right 0 bottom 4.4cqw, left 0 bottom 12cqw, right 0 top 3.2cqw;
+}
+.page.motif-mist::after{
+  opacity: calc(var(--deco-on,1) * .22);
+  -webkit-mask-image: var(--dx-safe-b); mask-image: var(--dx-safe-b);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 46cqw 3.4cqw, 30cqw 2.2cqw;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink2), var(--dx-ink2));
+  background-position: left 6cqw bottom 0, right 0 bottom 3.6cqw;
+}
+
+/* --------------------------------------------------------------------------
+   t6 沧海晨光 · 波浪  [页脚带里的等距弧线（触底边）+ 一条更亮的近岸浪线]
+   -------------------------------------------------------------------------- */
+.page.motif-wave::before{
+  opacity: calc(var(--deco-on,1) * .26);
+  -webkit-mask-image: var(--dx-safe-b); mask-image: var(--dx-safe-b);
+  background-image:
+    repeating-radial-gradient(circle at 34% 170%, transparent 0 3.4cqw, var(--dx-ink) 3.4cqw 3.68cqw),
+    repeating-radial-gradient(circle at 74% 206%, transparent 0 4.1cqw, var(--dx-ink) 4.1cqw 4.38cqw);
+}
+.page.motif-wave::after{
+  opacity: calc(var(--deco-on,1) * .34);
+  -webkit-mask-image: var(--dx-safe-b); mask-image: var(--dx-safe-b);
+  background-image:
+    repeating-radial-gradient(circle at 54% 182%, transparent 0 5.6cqw, var(--dx-ink2) 5.6cqw 5.95cqw);
+}
+
+/* --------------------------------------------------------------------------
+   t7 深蓝图谱 · 图纸网格  [两级网格，贴页边收口 + 四角十字标线 + 左右/上下刻度]
+   -------------------------------------------------------------------------- */
+.page.motif-grid::before{
+  opacity: calc(var(--deco-on,1) * .10);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: repeat, repeat;
+  background-size: 6cqw 6cqw, 2cqw 2cqw;
+  background-image:
+    linear-gradient(to right, var(--dx-ink) 0 .1cqw, transparent .1cqw),
+    linear-gradient(to bottom, var(--dx-ink) 0 .07cqw, transparent .07cqw);
+}
+.page.motif-grid::after{
+  opacity: calc(var(--deco-on,1) * .34);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat,
+                     repeat-y, repeat-x, repeat-y, repeat-x;
+  background-size:
+    2.8cqw .1cqw, .1cqw 2.8cqw, 2.8cqw .1cqw, .1cqw 2.8cqw,
+    .1cqw 2.2cqw, 2.2cqw .1cqw, .1cqw 2.2cqw, 2.2cqw .1cqw;
+  background-position:
+    right 3.4cqw top 3.4cqw, right 3.4cqw top 3.4cqw,
+    left 3.4cqw top 3.4cqw,  left 3.4cqw top 3.4cqw,
+    left 0 top 0, left 0 top 0,
+    right 0 bottom 0, right 0 bottom 0;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)), linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)), linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)), linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)), linear-gradient(var(--dx-ink), var(--dx-ink));
+}
+
+/* --------------------------------------------------------------------------
+   t8 墨绿咨询 · 斜切色带  [两条斜切色带，出画布边缘收口]
+   -------------------------------------------------------------------------- */
+.page.motif-diagonal::before{
+  opacity: calc(var(--deco-on,1) * .18);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-image:
+    linear-gradient(105deg, transparent 0 62%, var(--dx-ink) 62% 63.1%, transparent 63.1%),
+    linear-gradient(105deg, transparent 0 68.5%, var(--dx-ink2) 68.5% 69.4%, transparent 69.4%);
+}
+.page.motif-diagonal::after{
+  opacity: calc(var(--deco-on,1) * .26);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-image:
+    linear-gradient(105deg, transparent 0 74%, var(--dx-ink) 74% 82%, transparent 82%),
+    linear-gradient(105deg, transparent 0 34%, var(--dx-ink2) 34% 38.6%, transparent 38.6%);
+}
+
+/* --------------------------------------------------------------------------
+   t9 米白学术 · 纸感  [右上页角折痕（触上边与右边）+ 页脚细双线 + 左页边竖双线]
+   -------------------------------------------------------------------------- */
+.page.motif-paper::before{
+  opacity: calc(var(--deco-on,1) * .12);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-size: auto, .1cqw 84%, .1cqw 84%;
+  background-image:
+    repeating-linear-gradient(to bottom, var(--dx-ink) 0 .06cqw, transparent .06cqw 1.42cqw),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink));
+  background-position: 0 0, left 3.1cqw top 8%, left 4cqw top 8%;
+}
+.page.motif-paper::after{
+  opacity: calc(var(--deco-on,1) * .30);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 14cqw 14cqw, 14cqw .16cqw, 30cqw .1cqw, 30cqw .1cqw;
+  background-image:
+    linear-gradient(225deg, transparent 0 46%, var(--dx-ink) 46% 53%, transparent 53%),
+    linear-gradient(225deg, transparent 0 90%, var(--dx-ink) 90% 93%, transparent 93%),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink));
+  background-position: right 0 top 0, right 0 top 0,
+                       right 4.2cqw bottom .9cqw, right 4.2cqw bottom 2.1cqw;
+}
+
+/* --------------------------------------------------------------------------
+   t10 黑金财报 · 数据  [页脚九根递增柱状条坐在基准线上，触底边]
+   -------------------------------------------------------------------------- */
+.page.motif-bars::before{
+  opacity: calc(var(--deco-on,1) * .16);
+  -webkit-mask-image: var(--dx-safe-b); mask-image: var(--dx-safe-b);
+  background-repeat: no-repeat, repeat-x;
+  background-size: 46cqw .1cqw, auto .1cqw;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),
+    repeating-linear-gradient(to right, var(--dx-ink) 0 3.4cqw, transparent 3.4cqw 6.8cqw);
+  background-position: left 4.4cqw bottom 2.4cqw, left 4.4cqw bottom 5.4cqw;
+}
+.page.motif-bars::after{
+  opacity: calc(var(--deco-on,1) * .34);
+  -webkit-mask-image: var(--dx-safe-b); mask-image: var(--dx-safe-b);
+  background-repeat: no-repeat;
+  background-size:
+    1.15cqw 1.9cqw, 1.15cqw 3.1cqw, 1.15cqw 2.5cqw, 1.15cqw 4cqw, 1.15cqw 3.4cqw,
+    1.15cqw 5.2cqw, 1.15cqw 4.5cqw, 1.15cqw 6.2cqw, 1.15cqw 5.5cqw;
+  background-position:
+    left 4.6cqw bottom 0,  left 9.8cqw bottom 0,  left 15cqw bottom 0,
+    left 20.2cqw bottom 0, left 25.4cqw bottom 0, left 30.6cqw bottom 0,
+    left 35.8cqw bottom 0, left 41cqw bottom 0,   left 46.2cqw bottom 0;
+  background-image:
+    linear-gradient(var(--dx-ink), var(--dx-ink)),   linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),   linear-gradient(var(--dx-ink), var(--dx-ink)),
+    linear-gradient(var(--dx-ink), var(--dx-ink)),   linear-gradient(var(--dx-ink2), var(--dx-ink2)),
+    linear-gradient(var(--dx-ink2), var(--dx-ink2)), linear-gradient(var(--dx-ink2), var(--dx-ink2)),
+    linear-gradient(var(--dx-ink2), var(--dx-ink2));
+}
+
+/* --------------------------------------------------------------------------
+   t11 靛青企划 · 圆形  [右下大圆环出血触边 + 左上圆环段 + 左页边五枚圆点节奏]
+   -------------------------------------------------------------------------- */
+.page.motif-rings::before{
+  opacity: calc(var(--deco-on,1) * .20);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 24cqw 24cqw, 9cqw 9cqw;
+  background-image:
+    radial-gradient(circle closest-side, transparent 0 96.2%, var(--dx-ink) 97% 98.7%, transparent 100%),
+    radial-gradient(circle closest-side, transparent 0 92%, var(--dx-ink2) 93.4% 96.4%, transparent 100%);
+  background-position: left -7cqw top -7cqw, left -2cqw bottom -2cqw;
+}
+.page.motif-rings::after{
+  opacity: calc(var(--deco-on,1) * .32);
+  -webkit-mask-image: var(--dx-safe-br); mask-image: var(--dx-safe-br);
+  background-repeat: no-repeat;
+  background-size:
+    24cqw 24cqw, 16cqw 16cqw, 1.55cqw 1.55cqw, 1.55cqw 1.55cqw,
+    1.55cqw 1.55cqw, 1.55cqw 1.55cqw, 1.55cqw 1.55cqw;
+  background-position:
+    right -7cqw bottom -8cqw, right -2cqw bottom -3cqw,
+    left .9cqw top 14%, left .9cqw top 29%, left .9cqw top 44%, left .9cqw top 59%, left .9cqw top 74%;
+  background-image:
+    radial-gradient(circle closest-side, transparent 0 93%, var(--dx-ink) 94% 98.2%, transparent 100%),
+    radial-gradient(circle closest-side, transparent 0 90%, var(--dx-ink2) 92% 97%, transparent 100%),
+    radial-gradient(circle closest-side, var(--dx-ink) 0 100%, transparent),
+    radial-gradient(circle closest-side, var(--dx-ink) 0 100%, transparent),
+    radial-gradient(circle closest-side, var(--dx-ink) 0 100%, transparent),
+    radial-gradient(circle closest-side, var(--dx-ink) 0 100%, transparent),
+    radial-gradient(circle closest-side, var(--dx-ink) 0 100%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   t12 暖砂手记 · 手账  [顶边一条胶带 + 底边一条胶带（都出血触边）+ 左页边活页孔]
+   -------------------------------------------------------------------------- */
+.page.motif-tape::before{
+  opacity: calc(var(--deco-on,1) * .12);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: repeat, repeat;
+  background-size: 5.2cqw 5.2cqw, 5.2cqw 5.2cqw;
+  background-image:
+    linear-gradient(to right, var(--dx-ink) 0 .08cqw, transparent .08cqw),
+    linear-gradient(to bottom, var(--dx-ink) 0 .08cqw, transparent .08cqw);
+}
+.page.motif-tape::after{
+  opacity: calc(var(--deco-on,1) * .32);
+  -webkit-mask-image: var(--dx-safe); mask-image: var(--dx-safe);
+  background-repeat: no-repeat;
+  background-size: 22cqw 3.1cqw, 22cqw 3.1cqw, 15cqw 2.9cqw,
+                   1.9cqw 1.9cqw, 1.9cqw 1.9cqw, 1.9cqw 1.9cqw;
+  background-position:
+    left 0 top 0, left 0 top 0, left 0 bottom 0,
+    left .9cqw top 30%, left .9cqw top 47%, left .9cqw top 64%;
+  background-image:
+    linear-gradient(to bottom, transparent 0 6%, var(--dx-ink) 6% 94%, transparent 94%),
+    repeating-linear-gradient(115deg, transparent 0 .62cqw, var(--dx-ink2) .62cqw 1.1cqw, transparent 1.1cqw 1.72cqw),
+    linear-gradient(to bottom, transparent 0 8%, var(--dx-ink2) 8% 92%, transparent 92%),
+    radial-gradient(circle closest-side, transparent 0 28%, var(--dx-ink) 33% 78%, transparent 83%),
+    radial-gradient(circle closest-side, transparent 0 28%, var(--dx-ink) 33% 78%, transparent 83%),
+    radial-gradient(circle closest-side, transparent 0 28%, var(--dx-ink) 33% 78%, transparent 83%);
+}
+
+/* ==========================================================================
+   4. 三个通用装饰件（[rule] + [edge-geometry] + [tick-marks] 三个词汇）
+   ========================================================================== */
+.page .deco-corner,
+.page .deco-title-mark,
+.page .deco-footer-rule{
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  color: var(--dx-ink);
+  opacity: calc(var(--deco-on,1) * .55);
+}
+
+/* ---- 4.1 .deco-corner 贴角几何（L 形细线 + 方点，触边） ----------------- */
+.page .deco-corner{
+  width: 9.6cqw; height: 9.6cqw;
+  border: 0 solid currentColor;
+  opacity: calc(var(--deco-on,1) * var(--dc-op, .50));
+}
+.page .deco-corner::before{
+  content: "";
+  position: absolute;
+  width: 1.5cqw; height: 1.5cqw;
+  background: currentColor;
+  opacity: .85;
+}
+.page .deco-corner::after{
+  content: "";
+  position: absolute;
+  width: 4.4cqw; height: .1cqw;
+  background: currentColor;
+  opacity: .6;
+}
+.page .deco-corner.tl{ left: 0; top: 0; border-top-width: .1cqw; border-left-width: .1cqw; }
+.page .deco-corner.tr{ right: 0; top: 0; border-top-width: .1cqw; border-right-width: .1cqw; }
+.page .deco-corner.bl{ left: 0; bottom: 0; border-bottom-width: .1cqw; border-left-width: .1cqw; }
+.page .deco-corner.br{ right: 12cqw; bottom: 0; border-bottom-width: .1cqw; border-right-width: .1cqw; }
+.page .deco-corner.tl::before{ left: -.75cqw; top: -.75cqw; }
+.page .deco-corner.tr::before{ right: -.75cqw; top: -.75cqw; }
+.page .deco-corner.bl::before{ left: -.75cqw; bottom: -.75cqw; }
+.page .deco-corner.br::before{ right: -.75cqw; bottom: -.75cqw; }
+.page .deco-corner.tl::after{ left: 1.1cqw; top: 1.9cqw; }
+.page .deco-corner.tr::after{ right: 1.1cqw; top: 1.9cqw; }
+.page .deco-corner.bl::after{ left: 1.1cqw; bottom: 1.9cqw; }
+.page .deco-corner.br::after{ right: 1.1cqw; bottom: 1.9cqw; }
+.page .deco-corner.hair{ --dc-op: .34; border-width: 0; box-shadow: inset 0 0 0 .08cqw currentColor; }
+.page .deco-corner.hair::after{ display: none; }
+.page .deco-corner.dbl{ --dc-op: .42; border-style: double; border-width: .6cqw; }
+.page .deco-corner.dbl::after{ display: none; }
+
+/* ---- 4.2 .deco-title-mark 标题记号（尺寸随 --ts-title，不写死 px） -------
+   默认在左页边（x 3.1~5.5cqw 的空白带），与标题首行齐平；
+   .rm 变体落到标题右侧空白（x≈94.5~96.9cqw）。 */
+.page .deco-title-mark{
+  left: 3.1cqw; top: 5.55cqw;
+  width: calc(var(--ts-body) * 1.2); height: calc(var(--ts-body) * 1.2);
+  opacity: calc(var(--deco-on,1) * var(--dt-op, .85));
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--ts-body) * 1.2); line-height: 1;
+}
+.page .deco-title-mark.rm{ left: auto; right: 3.1cqw; }
+.page .deco-title-mark.square{ background: currentColor; }
+.page .deco-title-mark.bar{ width: calc(var(--ts-body) * .32); height: calc(var(--ts-body) * 1.5); background: currentColor; }
+.page .deco-title-mark.dash{ width: calc(var(--ts-body) * 1.7); height: calc(var(--ts-body) * .25); background: currentColor; }
+.page .deco-title-mark.dot{ border-radius: 50%; background: currentColor; }
+.page .deco-title-mark.ring{ border: calc(var(--ts-body) * .14) solid currentColor; border-radius: 50%; }
+.page .deco-title-mark.chev{
+  width: calc(var(--ts-body) * .95); height: calc(var(--ts-body) * .95);
+  border-left: calc(var(--ts-body) * .16) solid currentColor;
+  border-top: calc(var(--ts-body) * .16) solid currentColor;
+  transform: rotate(-45deg);
+}
+.page .deco-title-mark.diamond{
+  width: calc(var(--ts-body) * .95); height: calc(var(--ts-body) * .95);
+  background: currentColor; transform: rotate(45deg);
+}
+.page .deco-title-mark.bracket{
+  width: calc(var(--ts-body) * .75); height: calc(var(--ts-body) * 1.4);
+  border-left: calc(var(--ts-body) * .14) solid currentColor;
+  border-top: calc(var(--ts-body) * .14) solid currentColor;
+  border-bottom: calc(var(--ts-body) * .14) solid currentColor;
+}
+.page .deco-title-mark.ticks{
+  background-image:
+    linear-gradient(to right, currentColor 0 .22cqw, transparent .22cqw),
+    linear-gradient(to right, currentColor 0 .22cqw, transparent .22cqw),
+    linear-gradient(to right, currentColor 0 .22cqw, transparent .22cqw);
+  background-repeat: no-repeat;
+  background-size: .22cqw 100%, .22cqw 70%, .22cqw 40%;
+  background-position: 0 50%, 50% 50%, 100% 50%;
+}
+.page .deco-title-mark > svg{ width: 1em; height: 1em; display: block; }
+
+/* ---- 4.3 .deco-footer-rule 页脚分隔装饰（落在页脚带，右端留页码位） ----- */
+.page .deco-footer-rule{
+  left: 7.368cqw; right: 16.5cqw; bottom: 1.1cqw; height: 2.5cqw;
+  opacity: calc(var(--deco-on,1) * var(--df-op, .55));
+}
+.page .deco-footer-rule.solid{ border-top: .1cqw solid currentColor; }
+.page .deco-footer-rule.double::before,
+.page .deco-footer-rule.double::after{
+  content: ""; position: absolute; left: 0; right: 0; height: .1cqw; background: currentColor;
+}
+.page .deco-footer-rule.double::before{ top: 0; }
+.page .deco-footer-rule.double::after{ top: .62cqw; opacity: .6; }
+.page .deco-footer-rule.fade::before{
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: .12cqw;
+  background: linear-gradient(90deg, currentColor 0, transparent 62%, currentColor 100%);
+}
+.page .deco-footer-rule.dotted{
+  background-repeat: repeat-x;
+  background-size: 1.75cqw .42cqw;
+  background-image: radial-gradient(circle closest-side, currentColor 0 100%, transparent);
+  background-position: 0 0;
+}
+.page .deco-footer-rule.tick{
+  background-repeat: repeat-x;
+  background-image:
+    linear-gradient(to right, currentColor 0 .1cqw, transparent .1cqw),
+    linear-gradient(to right, currentColor 0 .1cqw, transparent .1cqw);
+  background-size: 2.6cqw .5cqw, 1.3cqw .28cqw;
+  background-position: 0 0, 50% 0;
+}
+.page .deco-footer-rule.bar::before{
+  content: ""; position: absolute; left: 0; top: 0; width: 6.2cqw; height: .45cqw; background: currentColor;
+}
+.page .deco-footer-rule.bar::after{
+  content: ""; position: absolute; left: 7.4cqw; right: 0; top: .18cqw; height: .1cqw;
+  background: linear-gradient(90deg, currentColor, transparent 78%);
+}
+
+/* ==========================================================================
+   5. 显式关闭（--deco-on:0 之外的第二道保险）
+   ========================================================================== */
+.page.deco-off::before,
+.page.deco-off::after{ opacity: 0 !important; }
+.page.deco-off .deco-corner,
+.page.deco-off .deco-title-mark,
+.page.deco-off .deco-footer-rule{ opacity: 0 !important; }
+
 </style>
 </head>
 <body>
@@ -992,8 +1553,8 @@ const TPL=[
   {id:"t2",name:"月白清光",cls:"theme-t2",sw:"sw2"},
   {id:"t3",name:"青峰林海",cls:"theme-t3",sw:"sw3"},
   {id:"t4",name:"鎏金案牍",cls:"theme-t4",sw:"sw4"},
-  {id:"t5",name:"紫雾星海",cls:"theme-t5",sw:"sw5"},
-  {id:"t6",name:"沧海深蓝",cls:"theme-t6",sw:"sw6"},
+  {id:"t5",name:"琥珀长夜",cls:"theme-t5",sw:"sw5"},
+  {id:"t6",name:"沧海晨光",cls:"theme-t6",sw:"sw6"},
 ];
 /* 合并扩展模板（t7–t12） */
 if(window.XH_TEMPLATES_EXTRA && window.XH_TEMPLATES_EXTRA.length){
@@ -2760,7 +3321,8 @@ window.XH_POEMS = {
     theme: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
     presProps: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps",
     viewProps: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps",
-    tableStyles: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles"
+    tableStyles: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles",
+    image: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
   };
 
   var CT = {
@@ -3092,10 +3654,19 @@ window.XH_POEMS = {
       + '<AppVersion>16.0000</AppVersion>'
       + '</Properties>';
   }
-  function contentTypesXml(nSlides, notesSlideNames) {
+  function contentTypesXml(nSlides, notesSlideNames, media) {
+    // 图片：按实际用到的扩展名补 <Default>；没有图就一条都不加（零回归）
+    var imgDefs = "", seenExt = {}, mi;
+    media = media || [];
+    for (mi = 0; mi < media.length; mi++) {
+      if (seenExt[media[mi].ext]) continue;
+      seenExt[media[mi].ext] = 1;
+      imgDefs += '<Default Extension="' + media[mi].ext + '" ContentType="' + media[mi].ct + '"/>';
+    }
     var s = DECL + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
       + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
       + '<Default Extension="xml" ContentType="application/xml"/>'
+      + imgDefs
       + '<Override PartName="/ppt/presentation.xml" ContentType="' + CT.presentation + '"/>'
       + '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="' + CT.slideMaster + '"/>'
       + '<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="' + CT.slideLayout + '"/>'
@@ -3242,10 +3813,47 @@ window.XH_POEMS = {
 
   /* ==========================================================================
    * 5. 版式渲染（12 种，每种排法都真的不同）
+   * --------------------------------------------------------------------------
+   * 版心（所有正文页共用，保证标题/边距轴线一致）：
+   *   左右 64px = 0.889in ≥ 0.8in 安全距；上 46px / 下 46px = 0.639in ≥ 0.6in
+   *   标题 (64,46,832,56) + 发丝线 (64,108) → 所有正文页标题轴完全一致
+   *   正文区 (64,140,832,306)；脚注线 456、脚注 460..492（底 492 ≤ 494）
+   * 图片版式：封面全幅铺满 + 双层半透明底衬；内页右侧 340px 图位，正文自动收窄到 466px
    * ======================================================================== */
 
-  var W = 960, H = 540, M = 64, CW = 832;
-  var TITLE_Y = 44, RULE_Y = 106, BODY_Y = 140, BODY_B = 474;
+  var W = 960, H = 540;
+  var M = 64, CW = 832;                       // 版心：64 .. 896
+  var SAFE_R = M + CW;                       // 896
+  var TITLE_Y = 46, TITLE_H = 56;
+  var RULE_Y = 108;
+  var BODY_Y = 140, BODY_B = 446;
+  var NOTE_RULE_Y = 456;
+  var NOTE_Y = 460, NOTE_H = 32;              // 底 492
+  var IMG_W = 340, IMG_X = SAFE_R - IMG_W;    // 556 .. 896（约占画布 35%）
+  var IMG_Y = 126, IMG_H = BODY_B - IMG_Y;    // 126 .. 446
+  var TEXT_W = IMG_X - 26 - M;                // 有图时正文宽 466
+
+  function areaOf(ctx) {
+    if (ctx && ctx.area) return ctx.area;
+    return { x: M, y: BODY_Y, w: CW, h: BODY_B - BODY_Y };
+  }
+
+  /* 横向分栏护栏：分栏数 × 每栏最小宽 必须 ≤ 可用宽，不够就减栏/改两行 */
+  function columns(w, n, minW, gap) {
+    gap = gap || 18;
+    minW = minW || 150;
+    n = Math.max(1, n | 0);
+    var cols = n;
+    while (cols > 1 && (cols * minW + (cols - 1) * gap) > w) cols--;
+    var rows = Math.ceil(n / cols);
+    var cw = (w - gap * (cols - 1)) / cols;
+    return { cols: cols, rows: rows, cw: Math.max(20, cw), gap: gap };
+  }
+  function clampX(x, w) {
+    if (x < M) return M;
+    if (x + w > SAFE_R) return SAFE_R - w;
+    return x;
+  }
 
   function normLayout(l) {
     l = String(l == null ? "bullets" : l).toLowerCase().replace(/[-\s]+/g, "_");
@@ -3278,11 +3886,11 @@ window.XH_POEMS = {
     o = o || {};
     var t = String(title == null ? "" : title).trim();
     if (t) {
-      var sz = fitFont(t, o.sz || 2500, CW, 58, 1.2);
+      var sz = fitFont(t, o.sz || 2400, CW, TITLE_H, 1.18);
       sb.push(shape({
-        name: "Title", x: M, y: TITLE_Y, w: CW, h: 58, anchor: "b",
+        name: "Title", x: M, y: TITLE_Y, w: CW, h: TITLE_H, anchor: "b",
         paras: [para([run(t, { sz: sz, b: true, color: pal.title, font: pal.ft })],
-          { algn: "l", lineSpcPct: 100000, sz: sz, color: pal.title, font: pal.ft })]
+          { algn: "l", lineSpcPct: 100000, sz: sz, color: pal.title, b: true, font: pal.ft })]
       }));
     }
     sb.push(shape({ name: "Rule", x: M, y: RULE_Y, w: CW, h: 2, fill: pal.accent, alpha: 0.9 }));
@@ -3291,416 +3899,514 @@ window.XH_POEMS = {
   function footNote(sb, pal, txt) {
     var t = String(txt == null ? "" : txt).trim();
     if (!t) return;
-    sb.push(shape({ name: "NoteRule", x: M, y: 476, w: CW, h: 1, fill: pal.line }));
-    var sz = fitFont(t, 1150, CW, 34, 1.35);
+    sb.push(shape({ name: "NoteRule", x: M, y: NOTE_RULE_Y, w: CW, h: 1, fill: pal.line }));
+    var sz = fitFont(t, 1150, CW, NOTE_H, 1.28);
     sb.push(shape({
-      name: "Note", x: M, y: 482, w: CW, h: 40, anchor: "t",
+      name: "Note", x: M, y: NOTE_Y, w: CW, h: NOTE_H, anchor: "t",
       paras: [para([run(t, { sz: sz, color: pal.muted, font: pal.fb })],
-        { algn: "l", lineSpcPct: 120000, sz: sz, color: pal.muted, font: pal.fb })]
+        { algn: "l", lineSpcPct: 118000, sz: sz, color: pal.muted, font: pal.fb })]
     }));
   }
 
-  function layCover(sb, pal, deck, s) {
+  /* ---------- 封面：全幅底图 + 居中文字（三条轴线统一在中线 480） ---------- */
+  function layCover(sb, pal, deck, s, ctx) {
     var title = String(s.title || deck.title || "").trim();
     var sub = String(s.subtitle || deck.subtitle || "").trim();
     var meta = contentOf(s).join("　·　");
     var poem = String(s.poem || deck.poem || "").trim();
     var poemFrom = String(s.poemFrom || deck.poemFrom || "").trim();
 
-    // 顶部小标 + 居中装饰条
     sb.push(shape({
-      name: "Eyebrow", x: 80, y: 100, w: 800, h: 26, anchor: "t",
+      name: "Eyebrow", x: M, y: 96, w: CW, h: 24, anchor: "t",
       paras: [para([run("SPARK PPT", { sz: 1150, b: true, color: pal.accent, font: pal.fb, spc: 400 })],
         { algn: "ctr", lineSpcPct: 100000, sz: 1150, color: pal.accent, font: pal.fb })]
     }));
-    sb.push(shape({ name: "CoverBar", x: W / 2 - 32, y: 142, w: 64, h: 4, fill: pal.accent }));
+    sb.push(shape({ name: "CoverBar", x: W / 2 - 32, y: 130, w: 64, h: 4, fill: pal.accent }));
 
     if (title) {
-      var tsz = fitFont(title, 4200, 800, 128, 1.3);
+      var tsz = fitFont(title, 3800, CW - 48, 128, 1.26);
       sb.push(shape({
-        name: "CoverTitle", x: 80, y: 168, w: 800, h: 124, anchor: "ctr",
+        name: "CoverTitle", x: M, y: 152, w: CW, h: 128, anchor: "ctr",
         paras: [para([run(title, { sz: tsz, b: true, color: pal.title, font: pal.ft })],
-          { algn: "ctr", lineSpcPct: 115000, sz: tsz, color: pal.title, font: pal.ft })]
+          { algn: "ctr", lineSpcPct: 114000, sz: tsz, color: pal.title, font: pal.ft })]
       }));
     }
     if (sub) {
-      var ssz = fitFont(sub, 1800, 720, 46, 1.3);
+      var ssz = fitFont(sub, 1750, CW - 96, 42, 1.26);
       sb.push(shape({
-        name: "CoverSub", x: 120, y: 306, w: 720, h: 46, anchor: "t",
+        name: "CoverSub", x: M, y: 288, w: CW, h: 42, anchor: "t",
         paras: [para([run(sub, { sz: ssz, color: pal.muted, font: pal.fb })],
-          { algn: "ctr", lineSpcPct: 120000, sz: ssz, color: pal.muted, font: pal.fb })]
+          { algn: "ctr", lineSpcPct: 118000, sz: ssz, color: pal.muted, font: pal.fb })]
       }));
     }
     if (meta) {
-      var msz = fitFont(meta, 1400, 760, 34, 1.3);
+      var msz = fitFont(meta, 1400, CW - 72, 32, 1.24);
       sb.push(shape({
-        name: "CoverMeta", x: 100, y: 358, w: 760, h: 36, anchor: "t",
+        name: "CoverMeta", x: M, y: 336, w: CW, h: 32, anchor: "t",
         paras: [para([run(meta, { sz: msz, color: pal.dim || pal.muted, font: pal.fb })],
-          { algn: "ctr", lineSpcPct: 120000, sz: msz, color: pal.dim || pal.muted, font: pal.fb })]
+          { algn: "ctr", lineSpcPct: 118000, sz: msz, color: pal.dim || pal.muted, font: pal.fb })]
       }));
     }
     if (poem) {
-      var psz = fitFont(poem, 1550, 700, 60, 1.5);
-      var pruns = [run(poem, { sz: psz, color: pal.accent, font: pal.ft })];
-      if (poemFrom) pruns.push(br(), run(poemFrom, { sz: Math.max(900, psz - 350), color: pal.dim || pal.muted, font: pal.fb }));
+      var psz = fitFont(poem, 1500, CW - 140, 40, 1.38);
+      var runs = [run(poem, { sz: psz, color: pal.accent, font: pal.ft })];
+      if (poemFrom) {
+        runs.push(br(), run(poemFrom, { sz: Math.max(900, psz - 350), color: pal.dim || pal.muted, font: pal.fb }));
+      }
       sb.push(shape({
-        name: "CoverPoem", x: 130, y: (meta ? 402 : 396), w: 700, h: 96, anchor: "t",
-        paras: [para(pruns, { algn: "ctr", lineSpcPct: 160000, sz: psz, color: pal.accent, font: pal.ft })]
+        name: "CoverPoem", x: M, y: 378, w: CW, h: 62, anchor: "t",
+        paras: [para(runs, { algn: "ctr", lineSpcPct: 148000, sz: psz, color: pal.accent, font: pal.ft })]
       }));
     }
   }
 
-  function layClosing(sb, pal, deck, s) {
+  /* ---------- 封底：居中标题 + 居中若干行 + note + 题词 ---------- */
+  function layClosing(sb, pal, deck, s, ctx) {
     var pts = contentOf(s);
     var title = String(s.title || "").trim() || "谢谢";
-    sb.push(shape({ name: "EndBar", x: W / 2 - 32, y: 148, w: 64, h: 4, fill: pal.accent }));
-    var tsz = fitFont(title, 3800, 800, 108, 1.25);
+
+    sb.push(shape({ name: "EndBar", x: W / 2 - 32, y: 130, w: 64, h: 4, fill: pal.accent }));
+    var tsz = fitFont(title, 3600, CW - 48, 100, 1.22);
     sb.push(shape({
-      name: "EndTitle", x: 80, y: 176, w: 800, h: 108, anchor: "ctr",
+      name: "EndTitle", x: M, y: 152, w: CW, h: 100, anchor: "ctr",
       paras: [para([run(title, { sz: tsz, b: true, color: pal.title, font: pal.ft })],
-        { algn: "ctr", lineSpcPct: 115000, sz: tsz, color: pal.title, font: pal.ft })]
+        { algn: "ctr", lineSpcPct: 112000, sz: tsz, color: pal.title, font: pal.ft })]
     }));
+
     if (!pts.length) pts.push("星星之火，可以燎原");
-    var lsz = Math.min(1700, fitFont(pts.join(""), 1700, 700, 130, 1.6));
+    var lsz = Math.min(1650, fitFont(pts.join(""), 1650, CW - 160, 110, 1.52));
     var paras = [], i;
     for (i = 0; i < pts.length; i++) {
       paras.push(para([run(pts[i], { sz: lsz, color: pal.text, font: pal.fb })],
-        { algn: "ctr", lineSpcPct: 150000, spcAftPts: 6, sz: lsz, color: pal.text, font: pal.fb }));
+        { algn: "ctr", lineSpcPct: 146000, spcAftPts: 5, sz: lsz, color: pal.text, font: pal.fb }));
     }
-    sb.push(shape({ name: "EndLines", x: 130, y: 296, w: 700, h: 140, anchor: "t", paras: paras }));
+    sb.push(shape({ name: "EndLines", x: M, y: 262, w: CW, h: 124, anchor: "t", paras: paras }));
 
+    var y = 394;
     var note = String(s.note || "").trim();
-    var y = 440;
     if (note) {
       sb.push(shape({
-        name: "EndNote", x: 130, y: y, w: 700, h: 40, anchor: "t",
-        paras: [para([run(note, { sz: Math.min(1300, fitFont(note, 1300, 700, 40, 1.4)), color: pal.muted, font: pal.fb })],
-          { algn: "ctr", lineSpcPct: 120000, sz: 1300, color: pal.muted, font: pal.fb })]
+        name: "EndNote", x: M, y: y, w: CW, h: 32, anchor: "t",
+        paras: [para([run(note, { sz: Math.min(1300, fitFont(note, 1300, CW - 120, 32, 1.26)), color: pal.muted, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 118000, sz: 1300, color: pal.muted, font: pal.fb })]
       }));
-      y += 44;
+      y += 38;
     }
     var poem = String(s.poem || deck.poem || "").trim();
-    if (poem && y < 500) {
+    if (poem) {
       sb.push(shape({
-        name: "EndPoem", x: 130, y: y, w: 700, h: 44, anchor: "t",
-        paras: [para([run(poem, { sz: 1250, color: pal.accent, font: pal.ft })],
+        name: "EndPoem", x: M, y: y, w: CW, h: 48, anchor: "t",
+        paras: [para([run(poem, { sz: Math.min(1250, fitFont(poem, 1250, CW - 140, 48, 1.28)), color: pal.accent, font: pal.ft })],
           { algn: "ctr", lineSpcPct: 120000, sz: 1250, color: pal.accent, font: pal.ft })]
       }));
     }
   }
 
-  function layBullets(sb, pal, deck, s) {
+  /* ---------- 要点：标题 + 发丝线 + 项目符号列表 ---------- */
+  function layBullets(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
-    var y0 = BODY_Y + 6, hh = BODY_B - y0;
-    var n = pts.length;
+
+    var y0 = a.y + 6, hh = a.h - 6, n = pts.length;
     var base = n <= 3 ? 1700 : (n === 4 ? 1550 : 1450);
-    var longest = "";
-    for (var k = 0; k < n; k++) if (textUnits(pts[k]) > textUnits(longest)) longest = pts[k];
-    var sz = Math.min(base, fitFont(longest, base, CW - 40, hh / n, 1.45));
-    sz = Math.max(1000, sz);
+    var longest = "", k;
+    for (k = 0; k < n; k++) if (textUnits(pts[k]) > textUnits(longest)) longest = pts[k];
+    var sz = Math.max(1050, Math.min(base, fitFont(longest, base, a.w - 40, hh / n, 1.42)));
+
     var paras = [];
-    for (var i = 0; i < n; i++) {
-      var pr = splitPair(pts[i]), runs;
+    for (k = 0; k < n; k++) {
+      var pr = splitPair(pts[k]), runs;
       if (pr[1]) {
         runs = [run(pr[0], { sz: sz, b: true, color: pal.accent, font: pal.fb }),
                 run("　" + pr[1], { sz: sz, color: pal.text, font: pal.fb })];
       } else {
-        runs = [run(pr[0] || pts[i], { sz: sz, color: pal.text, font: pal.fb })];
+        runs = [run(pr[0] || pts[k], { sz: sz, color: pal.text, font: pal.fb })];
       }
       paras.push(para(runs, {
         algn: "l", bulletChar: "·", marL: 240000, indent: -240000,
-        lineSpcPct: 140000, spcAftPts: Math.max(6, Math.round(sz / 100 * 0.7)),
+        lineSpcPct: 140000, spcAftPts: Math.max(5, Math.round(sz / 100 * 0.7)),
         sz: sz, color: pal.text, font: pal.fb
       }));
     }
-    sb.push(shape({ name: "Bullets", x: M, y: y0, w: CW, h: hh, anchor: "t", paras: paras }));
+    sb.push(shape({ name: "Bullets", x: a.x, y: y0, w: a.w, h: hh, anchor: "t", paras: paras }));
     footNote(sb, pal, s.note);
   }
 
-  function layTwoCol(sb, pal, deck, s) {
+  /* ---------- 两栏对照：中竖线 + 左右两栏「小标题/说明」 ---------- */
+  function layTwoCol(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
+
     var mid = Math.max(1, Math.ceil(pts.length / 2));
-    var cols = [pts.slice(0, mid), pts.slice(mid)];
-    var geo = [{ x: M, w: 372 }, { x: 504, w: 392 }];
-    var hh = BODY_B - BODY_Y;
+    var colArr = [pts.slice(0, mid), pts.slice(mid)];
+    var gap = 22, cw = (a.w - gap) / 2;
+    var geo = [{ x: a.x, w: cw }, { x: a.x + cw + gap, w: cw }];
+    var hh = a.h;
 
-    sb.push(shape({ name: "ColGap", x: 472, y: BODY_Y, w: 2, h: hh, fill: pal.line }));
+    sb.push(shape({ name: "ColGap", x: a.x + cw + gap / 2 - 1, y: a.y, w: 2, h: hh, fill: pal.line }));
 
-    var slot = hh / Math.max(1, Math.max(cols[0].length, cols[1].length));
+    var slot = hh / Math.max(1, Math.max(colArr[0].length, colArr[1].length));
     for (var c = 0; c < 2; c++) {
-      if (!cols[c].length) continue;
-      var cx = geo[c].x, cw = geo[c].w, paras = [], i;
-      for (i = 0; i < cols[c].length; i++) {
-        var pr = splitPair(cols[c][i]);
-        var t1 = Math.max(1050, Math.min(1700, fitFont(pr[0], 1700, cw, slot * 0.5, 1.3)));
+      if (!colArr[c].length) continue;
+      var cx = geo[c].x, c2 = geo[c].w, paras = [], i;
+      for (i = 0; i < colArr[c].length; i++) {
+        var pr = splitPair(colArr[c][i]);
+        var t1 = Math.max(1050, Math.min(1650, fitFont(pr[0], 1650, c2, slot * 0.5, 1.26)));
         if (pr[1]) {
           paras.push(para([run(pr[0], { sz: t1, b: true, color: pal.accent, font: pal.fb })],
             { algn: "l", lineSpcPct: 100000, spcBefPts: i ? 6 : 0, sz: t1, color: pal.accent, b: true, font: pal.fb }));
-          var t2 = Math.max(950, Math.min(1400, fitFont(pr[1], 1400, cw, slot * 0.7, 1.4)));
+          var t2 = Math.max(950, Math.min(1350, fitFont(pr[1], 1350, c2, slot * 0.7, 1.36)));
           paras.push(para([run(pr[1], { sz: t2, color: pal.text, font: pal.fb })],
-            { algn: "l", lineSpcPct: 130000, spcAftPts: 4, sz: t2, color: pal.text, font: pal.fb }));
+            { algn: "l", lineSpcPct: 128000, spcAftPts: 4, sz: t2, color: pal.text, font: pal.fb }));
         } else {
-          paras.push(para([run(pr[0] || cols[c][i], { sz: t1, color: pal.text, font: pal.fb })],
-            { algn: "l", bulletChar: "·", marL: 200000, indent: -200000, lineSpcPct: 130000, spcAftPts: 6,
+          paras.push(para([run(pr[0] || colArr[c][i], { sz: t1, color: pal.text, font: pal.fb })],
+            { algn: "l", bulletChar: "·", marL: 200000, indent: -200000, lineSpcPct: 128000, spcAftPts: 6,
               sz: t1, color: pal.text, font: pal.fb }));
         }
       }
-      sb.push(shape({ name: "Col" + (c + 1), x: cx, y: BODY_Y, w: cw, h: hh, anchor: "t", paras: paras }));
+      sb.push(shape({ name: "Col" + (c + 1), x: cx, y: a.y, w: c2, h: hh, anchor: "t", paras: paras }));
     }
     footNote(sb, pal, s.note);
   }
 
-  function layGrid(sb, pal, deck, s) {
+  /* ---------- 并列网格：圆角卡片 + 编号 ---------- */
+  function layGrid(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 8);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
-    var n = pts.length, cols = 2, gapX = 24, gapY = 14;
+
+    var n = pts.length, gapX = 20, gapY = 12;
+    var cols = (a.w >= 2 * 150 + gapX) ? 2 : 1;
     var rows = Math.ceil(n / cols);
-    var cellW = (CW - gapX) / 2;
-    var availH = BODY_B - BODY_Y;
-    var cellH = Math.min(152, (availH - gapY * (rows - 1)) / rows);
+    var cellW = (a.w - gapX * (cols - 1)) / cols;
+    var cellH = Math.min(150, (a.h - gapY * (rows - 1)) / rows);
     var totalH = rows * cellH + gapY * (rows - 1);
-    var y0 = BODY_Y + Math.max(0, (availH - totalH) / 2);
+    var y0 = a.y + Math.max(0, (a.h - totalH) / 2);
 
     for (var i = 0; i < n; i++) {
       var r = Math.floor(i / cols), c = i % cols;
-      var x = M + c * (cellW + gapX), y = y0 + r * (cellH + gapY);
+      var x = a.x + c * (cellW + gapX), y = y0 + r * (cellH + gapY);
       var pr = splitPair(pts[i]);
       sb.push(shape({ name: "GridCard" + (i + 1), x: x, y: y, w: cellW, h: cellH, geom: "roundRect", fill: pal.card }));
       sb.push(shape({
-        name: "GridNum" + (i + 1), x: x + 18, y: y + 10, w: 60, h: 22, anchor: "t",
+        name: "GridNum" + (i + 1), x: x + 16, y: y + 10, w: 60, h: 22, anchor: "t",
         paras: [para([run(pad2(i + 1), { sz: 1150, b: true, color: pal.accent, font: pal.fb, spc: 100 })],
           { algn: "l", lineSpcPct: 100000, sz: 1150, color: pal.accent, font: pal.fb })]
       }));
-      var boxH = cellH - 46;
-      var tx = [], sz1 = Math.max(1000, Math.min(1500, fitFont(pr[0], 1500, cellW - 36, boxH, 1.35)));
+      var boxH = cellH - 44;
+      var tx = [];
+      var sz1 = Math.max(1000, Math.min(1450, fitFont(pr[0], 1450, cellW - 32, boxH, 1.3)));
       tx.push(para([run(pr[0], { sz: sz1, b: !!pr[1], color: pr[1] ? pal.title : pal.text, font: pal.fb })],
         { algn: "l", lineSpcPct: 120000, sz: sz1, color: pr[1] ? pal.title : pal.text, b: !!pr[1], font: pal.fb }));
       if (pr[1]) {
-        var sz2 = Math.max(950, Math.min(1300, fitFont(pr[1], 1300, cellW - 36, boxH, 1.35)));
+        var sz2 = Math.max(950, Math.min(1250, fitFont(pr[1], 1250, cellW - 32, boxH, 1.3)));
         tx.push(para([run(pr[1], { sz: sz2, color: pal.text, font: pal.fb })],
-          { algn: "l", lineSpcPct: 128000, spcBefPts: 2, sz: sz2, color: pal.text, font: pal.fb }));
+          { algn: "l", lineSpcPct: 126000, spcBefPts: 2, sz: sz2, color: pal.text, font: pal.fb }));
       }
-      sb.push(shape({ name: "GridText" + (i + 1), x: x + 18, y: y + 36, w: cellW - 36, h: boxH + 6, anchor: "t", paras: tx }));
+      sb.push(shape({ name: "GridText" + (i + 1), x: x + 16, y: y + 34, w: cellW - 32, h: boxH + 4, anchor: "t", paras: tx }));
     }
     footNote(sb, pal, s.note);
   }
 
-  function layKpi(sb, pal, deck, s) {
+  /* ---------- 大数字：2~4 个卡片（窄时自动 2 行） ---------- */
+  function layKpi(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 4);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
-    var n = pts.length, gap = 20, bh = 190, y = 186;
-    var bw = (CW - gap * (n - 1)) / n;
+
+    var n = pts.length, gap = 20, rowGap = 16;
+    var g = columns(a.w, n, 150, gap);
+    var rows = g.rows, cols = g.cols, cw = g.cw;
+    var bh = Math.min(184, (a.h - rowGap * (rows - 1)) / rows);
+    var totalH = rows * bh + rowGap * (rows - 1);
+    var y0 = a.y + Math.max(0, (a.h - totalH) / 2);
+
     for (var i = 0; i < n; i++) {
-      var x = M + i * (bw + gap);
+      var r = Math.floor(i / cols), c = i % cols;
+      var x = a.x + c * (cw + gap), y = y0 + r * (bh + rowGap);
       var pr = splitPair(pts[i]);
-      sb.push(shape({ name: "KpiCard" + (i + 1), x: x, y: y, w: bw, h: bh, geom: "roundRect", fill: pal.card }));
-      var nsz = Math.max(1800, Math.min(4400, fitFont(pr[0], 4400, bw - 32, 78, 1.15)));
+      var numH = Math.round(bh * 0.40), numY = Math.round(bh * 0.15);
+      var barY = Math.round(bh * 0.62);
+      var labY = Math.round(bh * 0.67), labH = bh - labY - 6;
+
+      sb.push(shape({ name: "KpiCard" + (i + 1), x: x, y: y, w: cw, h: bh, geom: "roundRect", fill: pal.card }));
+      var nsz = Math.max(1600, Math.min(4200, fitFont(pr[0], 4200, cw - 28, numH, 1.12)));
       sb.push(shape({
-        name: "KpiNum" + (i + 1), x: x + 14, y: y + 34, w: bw - 28, h: 78, anchor: "ctr",
+        name: "KpiNum" + (i + 1), x: x + 12, y: y + numY, w: cw - 24, h: numH, anchor: "ctr",
         paras: [para([run(pr[0], { sz: nsz, b: true, color: pal.accent, font: pal.fb })],
           { algn: "ctr", lineSpcPct: 100000, sz: nsz, color: pal.accent, font: pal.fb })]
       }));
-      sb.push(shape({ name: "KpiBar" + (i + 1), x: x + bw / 2 - 20, y: y + 116, w: 40, h: 3, fill: pal.accent, alpha: 0.85 }));
-      if (pr[1]) {
-        var lsz = Math.max(950, Math.min(1500, fitFont(pr[1], 1500, bw - 28, 56, 1.4)));
+      sb.push(shape({ name: "KpiBar" + (i + 1), x: x + cw / 2 - 18, y: y + barY, w: 36, h: 3, fill: pal.accent, alpha: 0.85 }));
+      if (pr[1] && labH > 10) {
+        var lsz = Math.max(950, Math.min(1450, fitFont(pr[1], 1450, cw - 26, labH, 1.32)));
         sb.push(shape({
-          name: "KpiLab" + (i + 1), x: x + 14, y: y + 128, w: bw - 28, h: 52, anchor: "t",
+          name: "KpiLab" + (i + 1), x: x + 13, y: y + labY, w: cw - 26, h: labH, anchor: "t",
           paras: [para([run(pr[1], { sz: lsz, color: pal.muted, font: pal.fb })],
-            { algn: "ctr", lineSpcPct: 125000, sz: lsz, color: pal.muted, font: pal.fb })]
+            { algn: "ctr", lineSpcPct: 122000, sz: lsz, color: pal.muted, font: pal.fb })]
         }));
       }
     }
     footNote(sb, pal, s.note);
   }
 
-  function layTimeline(sb, pal, deck, s) {
+  /* ---------- 时间轴：横线 + 圆点 + 阶段 + 说明（窄则竖排兜底） ---------- */
+  function layTimeline(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 5);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
-    var n = pts.length, x0 = 100, x1 = 860, span = x1 - x0, lineY = 248;
-    sb.push(shape({ name: "TlLine", x: x0, y: lineY, w: span, h: 2, fill: pal.line }));
-    var step = n > 1 ? span / (n - 1) : 0;
-    var dw = Math.max(120, Math.min(340, n > 1 ? step * 0.88 : 340));
+
+    var n = pts.length;
+    var dw = Math.min(300, (a.w / n) * 0.92);
+    if (n > 1 && dw < 130) { layTimelineStack(sb, pal, pts, a); footNote(sb, pal, s.note); return; }
+
+    var lineY = a.y + 96;
+    var x0 = a.x + dw / 2, x1 = a.x + a.w - dw / 2;
+    var step = n > 1 ? (x1 - x0) / (n - 1) : 0;
+    sb.push(shape({ name: "TlLine", x: x0, y: lineY, w: Math.max(1, x1 - x0), h: 2, fill: pal.line }));
+
     for (var i = 0; i < n; i++) {
-      var cx = n > 1 ? x0 + i * step : (x0 + x1) / 2;
+      var cx = n > 1 ? x0 + i * step : (a.x + a.w / 2);
+      var bx = cx - dw / 2;                       // 已保证落在 [M, SAFE_R]
       var pr = splitPair(pts[i]);
       sb.push(shape({ name: "TlDot" + (i + 1), x: cx - 9, y: lineY - 8, w: 18, h: 18, geom: "ellipse", fill: pal.accent }));
-      var hsz = Math.max(1050, Math.min(1600, fitFont(pr[0], 1600, dw, 46, 1.3)));
+
+      var hsz = Math.max(1050, Math.min(1550, fitFont(pr[0], 1550, dw, 42, 1.26)));
       sb.push(shape({
-        name: "TlStage" + (i + 1), x: cx - dw / 2, y: lineY + 24, w: dw, h: 46, anchor: "t",
+        name: "TlStage" + (i + 1), x: bx, y: lineY + 22, w: dw, h: 42, anchor: "t",
         paras: [para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.fb })],
-          { algn: "ctr", lineSpcPct: 115000, sz: hsz, color: pal.title, font: pal.fb })]
+          { algn: "ctr", lineSpcPct: 114000, sz: hsz, color: pal.title, font: pal.fb })]
       }));
       if (pr[1]) {
-        var dsz = Math.max(900, Math.min(1250, fitFont(pr[1], 1250, dw, 140, 1.4)));
-        sb.push(shape({
-          name: "TlDesc" + (i + 1), x: cx - dw / 2, y: lineY + 74, w: dw, h: 148, anchor: "t",
-          paras: [para([run(pr[1], { sz: dsz, color: pal.muted, font: pal.fb })],
-            { algn: "ctr", lineSpcPct: 135000, sz: dsz, color: pal.muted, font: pal.fb })]
-        }));
+        var descY = lineY + 68, descH = a.y + a.h - descY;
+        if (descH > 20) {
+          var dsz = Math.max(900, Math.min(1220, fitFont(pr[1], 1220, dw, descH, 1.34)));
+          sb.push(shape({
+            name: "TlDesc" + (i + 1), x: bx, y: descY, w: dw, h: descH, anchor: "t",
+            paras: [para([run(pr[1], { sz: dsz, color: pal.muted, font: pal.fb })],
+              { algn: "ctr", lineSpcPct: 132000, sz: dsz, color: pal.muted, font: pal.fb })]
+          }));
+        }
       }
     }
     footNote(sb, pal, s.note);
   }
 
-  function laySteps(sb, pal, deck, s) {
+  /* 时间轴竖排兜底：每条一行，圆点 + 阶段 + 说明 */
+  function layTimelineStack(sb, pal, pts, a) {
+    var n = pts.length, rowH = a.h / n;
+    var nameW = Math.min(150, a.w * 0.32);
+    for (var i = 0; i < n; i++) {
+      var y = a.y + i * rowH;
+      var pr = splitPair(pts[i]);
+      sb.push(shape({ name: "TlDot" + (i + 1), x: a.x + 2, y: y + rowH / 2 - 6, w: 12, h: 12, geom: "ellipse", fill: pal.accent }));
+      var hsz = Math.max(1050, Math.min(1500, fitFont(pr[0], 1500, nameW, rowH, 1.26)));
+      sb.push(shape({
+        name: "TlStage" + (i + 1), x: a.x + 26, y: y, w: nameW, h: rowH, anchor: "ctr",
+        paras: [para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.fb })],
+          { algn: "l", lineSpcPct: 114000, sz: hsz, color: pal.title, font: pal.fb })]
+      }));
+      if (pr[1]) {
+        var dw2 = a.w - nameW - 36;
+        var dsz = Math.max(900, Math.min(1200, fitFont(pr[1], 1200, dw2, rowH, 1.32)));
+        sb.push(shape({
+          name: "TlDesc" + (i + 1), x: a.x + 26 + nameW + 10, y: y, w: dw2, h: rowH, anchor: "ctr",
+          paras: [para([run(pr[1], { sz: dsz, color: pal.muted, font: pal.fb })],
+            { algn: "l", lineSpcPct: 130000, sz: dsz, color: pal.muted, font: pal.fb })]
+        }));
+      }
+    }
+  }
+
+  /* ---------- 流程：N 列「序号 + 名称 + 说明」（窄时自动 2 行） ---------- */
+  function laySteps(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 5);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
-    var n = pts.length, gap = 18;
-    var cw = (CW - gap * (n - 1)) / n;
+
+    var n = pts.length;
+    var g = columns(a.w, n, 150, 18);
+    var cols = g.cols, rows = g.rows, cw = g.cw, gap = 18, rowGap = 16;
+    var rh = (a.h - rowGap * (rows - 1)) / rows;
+
     for (var i = 0; i < n; i++) {
-      var x = M + i * (cw + gap);
+      var r = Math.floor(i / cols), c = i % cols;
+      var x = a.x + c * (cw + gap), y = a.y + r * (rh + rowGap);
       var pr = splitPair(pts[i]);
-      sb.push(shape({ name: "StepBar" + (i + 1), x: x, y: BODY_Y, w: Math.min(52, cw), h: 4, fill: pal.accent }));
+
+      var numH = Math.min(56, rh * 0.20);
+      var nameY = 16 + numH, nameH = Math.min(52, rh * 0.19);
+      var descY = nameY + nameH + 4, descH = rh - descY - 2;
+
+      sb.push(shape({ name: "StepBar" + (i + 1), x: x, y: y, w: Math.min(52, cw), h: 4, fill: pal.accent }));
+      var nums = Math.max(1500, Math.min(3000, cw * 11));
       sb.push(shape({
-        name: "StepNum" + (i + 1), x: x, y: BODY_Y + 14, w: cw, h: 58, anchor: "t",
-        paras: [para([run(pad2(i + 1), { sz: Math.max(1800, Math.min(3000, cw * 12)), b: true, color: mix(pal.accent, pal.bg, 0.42), font: pal.fb, spc: 100 })],
-          { algn: "l", lineSpcPct: 100000, sz: 2400, color: mix(pal.accent, pal.bg, 0.42), font: pal.fb })]
+        name: "StepNum" + (i + 1), x: x, y: y + 14, w: cw, h: numH, anchor: "t",
+        paras: [para([run(pad2(i + 1), { sz: nums, b: true, color: mix(pal.accent, pal.bg, 0.42), font: pal.fb, spc: 100 })],
+          { algn: "l", lineSpcPct: 100000, sz: nums, color: mix(pal.accent, pal.bg, 0.42), font: pal.fb })]
       }));
-      var nsz = Math.max(1100, Math.min(1750, fitFont(pr[0], 1750, cw, 54, 1.3)));
+      var nsz = Math.max(1100, Math.min(1700, fitFont(pr[0], 1700, cw, nameH, 1.24)));
       sb.push(shape({
-        name: "StepName" + (i + 1), x: x, y: BODY_Y + 82, w: cw, h: 54, anchor: "t",
+        name: "StepName" + (i + 1), x: x, y: y + nameY, w: cw, h: nameH, anchor: "t",
         paras: [para([run(pr[0], { sz: nsz, b: true, color: pal.text, font: pal.fb })],
-          { algn: "l", lineSpcPct: 118000, sz: nsz, color: pal.text, font: pal.fb })]
+          { algn: "l", lineSpcPct: 116000, sz: nsz, color: pal.text, font: pal.fb })]
       }));
-      if (pr[1]) {
-        var dsz = Math.max(900, Math.min(1300, fitFont(pr[1], 1300, cw, 180, 1.4)));
+      if (pr[1] && descH > 18) {
+        var dsz = Math.max(900, Math.min(1280, fitFont(pr[1], 1280, cw, descH, 1.32)));
         sb.push(shape({
-          name: "StepDesc" + (i + 1), x: x, y: BODY_Y + 140, w: cw, h: 186, anchor: "t",
+          name: "StepDesc" + (i + 1), x: x, y: y + descY, w: cw, h: descH, anchor: "t",
           paras: [para([run(pr[1], { sz: dsz, color: pal.muted, font: pal.fb })],
-            { algn: "l", lineSpcPct: 135000, sz: dsz, color: pal.muted, font: pal.fb })]
+            { algn: "l", lineSpcPct: 132000, sz: dsz, color: pal.muted, font: pal.fb })]
         }));
       }
     }
     footNote(sb, pal, s.note);
   }
 
-  function layCompare(sb, pal, deck, s) {
+  /* ---------- 左右对照：中缝竖线 + 两侧「大标题 + ·要点」 ---------- */
+  function layCompare(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 2);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
-    var hh = BODY_B - BODY_Y;
-    sb.push(shape({ name: "CmpRule", x: 472, y: BODY_Y, w: 2, h: hh, fill: pal.line }));
-    var geo = [{ x: M, w: 376 }, { x: 504, w: 392 }];
+
+    var gap = 34, cw = (a.w - gap) / 2;
+    var geo = [{ x: a.x, w: cw }, { x: a.x + cw + gap, w: cw }];
+    sb.push(shape({ name: "CmpRule", x: a.x + cw + gap / 2 - 1, y: a.y, w: 2, h: a.h, fill: pal.line }));
+
     for (var i = 0; i < pts.length && i < 2; i++) {
       var pr = splitPair(pts[i]);
       var items = String(pr[1] || "").split(/[；;]/).map(function (v) { return v.trim(); })
         .filter(function (v) { return v !== ""; });
-      var cx = geo[i].x, cw = geo[i].w, paras = [];
-      var hsz = Math.max(1300, Math.min(1900, fitFont(pr[0], 1900, cw, 52, 1.3)));
+      var cx = geo[i].x, c2 = geo[i].w, paras = [];
+      var hsz = Math.max(1300, Math.min(1850, fitFont(pr[0], 1850, c2, 50, 1.26)));
       paras.push(para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.ft })],
         { algn: "l", lineSpcPct: 110000, spcAftPts: 10, sz: hsz, color: pal.title, font: pal.ft }));
       for (var j = 0; j < items.length; j++) {
-        var dsz = Math.max(950, Math.min(1400, fitFont(items[j], 1400, cw - 28, 96, 1.4)));
+        var dsz = Math.max(950, Math.min(1350, fitFont(items[j], 1350, c2 - 24, 92, 1.34)));
         paras.push(para([run(items[j], { sz: dsz, color: pal.text, font: pal.fb })],
-          { algn: "l", bulletChar: "·", marL: 200000, indent: -200000, lineSpcPct: 132000, spcAftPts: 6,
+          { algn: "l", bulletChar: "·", marL: 190000, indent: -190000, lineSpcPct: 130000, spcAftPts: 6,
             sz: dsz, color: pal.text, font: pal.fb }));
       }
-      if (items.length === 0 && pr[1]) {
-        paras.push(para([run(pr[1], { sz: 1300, color: pal.text, font: pal.fb })],
-          { algn: "l", lineSpcPct: 132000, sz: 1300, color: pal.text, font: pal.fb }));
+      if (!items.length && pr[1]) {
+        paras.push(para([run(pr[1], { sz: 1250, color: pal.text, font: pal.fb })],
+          { algn: "l", lineSpcPct: 130000, sz: 1250, color: pal.text, font: pal.fb }));
       }
-      sb.push(shape({ name: "CmpCol" + (i + 1), x: cx, y: BODY_Y, w: cw, h: hh, anchor: "t", paras: paras }));
+      sb.push(shape({ name: "CmpCol" + (i + 1), x: cx, y: a.y, w: c2, h: a.h, anchor: "t", paras: paras }));
     }
     footNote(sb, pal, s.note);
   }
 
-  function layQuote(sb, pal, deck, s) {
+  /* ---------- 金句：整页居中引文 + 出处 ---------- */
+  function layQuote(sb, pal, deck, s, ctx) {
     var pts = contentOf(s);
     var q = pts[0] || String(s.title || "").trim();
     var src = pts[1] || String(s.note || "").trim();
     var eb = String(s.eyebrow || "一句话").trim();
+
     sb.push(shape({
-      name: "QuoteEyebrow", x: 80, y: 116, w: 800, h: 26, anchor: "t",
+      name: "QuoteEyebrow", x: M, y: 118, w: CW, h: 24, anchor: "t",
       paras: [para([run(eb, { sz: 1250, b: true, color: pal.accent, font: pal.fb, spc: 400 })],
         { algn: "ctr", lineSpcPct: 100000, sz: 1250, color: pal.accent, font: pal.fb })]
     }));
-    sb.push(shape({ name: "QuoteBar", x: W / 2 - 24, y: 158, w: 48, h: 3, fill: pal.accent }));
+    sb.push(shape({ name: "QuoteBar", x: W / 2 - 24, y: 150, w: 48, h: 3, fill: pal.accent }));
+
     if (q) {
-      var qsz = fitFont(q, 3000, 740, 170, 1.35);
+      var qsz = fitFont(q, 2800, CW - 128, 176, 1.32);
       sb.push(shape({
-        name: "QuoteText", x: 110, y: 188, w: 740, h: 170, anchor: "ctr",
+        name: "QuoteText", x: M, y: 168, w: CW, h: 176, anchor: "ctr",
         paras: [para([run(q, { sz: qsz, b: true, color: pal.title, font: pal.ft })],
-          { algn: "ctr", lineSpcPct: 135000, sz: qsz, color: pal.title, font: pal.ft })]
+          { algn: "ctr", lineSpcPct: 132000, sz: qsz, color: pal.title, font: pal.ft })]
       }));
     }
     if (src) {
-      var ssz = Math.max(1000, Math.min(1450, fitFont(src, 1450, 680, 46, 1.4)));
+      var ssz = Math.max(1000, Math.min(1400, fitFont(src, 1400, CW - 200, 42, 1.3)));
       sb.push(shape({
-        name: "QuoteSrc", x: 140, y: 372, w: 680, h: 46, anchor: "t",
+        name: "QuoteSrc", x: M, y: 356, w: CW, h: 42, anchor: "t",
         paras: [para([run("—— " + src, { sz: ssz, color: pal.muted, font: pal.fb })],
-          { algn: "ctr", lineSpcPct: 125000, sz: ssz, color: pal.muted, font: pal.fb })]
+          { algn: "ctr", lineSpcPct: 120000, sz: ssz, color: pal.muted, font: pal.fb })]
       }));
     }
   }
 
-  function layTable(sb, pal, deck, s) {
+  /* ---------- 表格：三列无竖线，靠横线分隔 ---------- */
+  function layTable(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 6);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
+
     var rows = pts.length;
-    var rowH = Math.min(58, (BODY_B - BODY_Y) / rows);
-    var geo = [{ x: M, w: 292 }, { x: 372, w: 242 }, { x: 622, w: 274 }];
+    var rowH = Math.min(56, a.h / rows);
+    var f = [0.36, 0.30, 0.34], acc = a.x, geo = [];
+    for (var ci = 0; ci < 3; ci++) {
+      var cwv = a.w * f[ci];
+      geo.push({ x: acc, w: cwv });
+      acc += cwv;
+    }
     for (var i = 0; i < rows; i++) {
       var cells = String(pts[i]).split("|").map(function (v) { return v.trim(); });
       if (cells.length > 3) cells = [cells[0], cells[1], cells.slice(2).join(" / ")];
-      var y = BODY_Y + i * rowH, isHead = (i === 0) && rows > 2;
+      var y = a.y + i * rowH, isHead = (i === 0) && rows > 2;
       for (var c = 0; c < 3; c++) {
         var v = cells[c] != null ? cells[c] : "";
         if (!v) continue;
-        var base = isHead ? 1550 : 1450;
-        var csz = Math.max(950, Math.min(base, fitFont(v, base, geo[c].w, rowH - 8, 1.25)));
+        var base = isHead ? 1500 : 1400;
+        var csz = Math.max(950, Math.min(base, fitFont(v, base, geo[c].w - 14, rowH - 8, 1.22)));
         sb.push(shape({
-          name: "Td" + (i + 1) + "_" + (c + 1), x: geo[c].x, y: y, w: geo[c].w, h: rowH - 4, anchor: "ctr",
+          name: "Td" + (i + 1) + "_" + (c + 1), x: geo[c].x, y: y, w: geo[c].w - 6, h: rowH - 4, anchor: "ctr",
           paras: [para([run(v, { sz: csz, b: isHead, color: isHead ? pal.accent : pal.text, font: pal.fb })],
-            { algn: "l", lineSpcPct: 115000, sz: csz, color: isHead ? pal.accent : pal.text, b: isHead, font: pal.fb })]
+            { algn: "l", lineSpcPct: 114000, sz: csz, color: isHead ? pal.accent : pal.text, b: isHead, font: pal.fb })]
         }));
       }
       sb.push(shape({
-        name: "Tr" + (i + 1), x: M, y: y + rowH - 3, w: CW, h: isHead ? 2 : 1,
+        name: "Tr" + (i + 1), x: a.x, y: y + rowH - 3, w: a.w, h: isHead ? 2 : 1,
         fill: isHead ? pal.accent : pal.line, alpha: isHead ? 0.75 : 1
       }));
     }
     footNote(sb, pal, s.note);
   }
 
-  function layZigzag(sb, pal, deck, s) {
+  /* ---------- 交错图文：左右交替 ---------- */
+  function layZigzag(sb, pal, deck, s, ctx) {
     head(sb, pal, s.title);
     var pts = contentOf(s).slice(0, 6);
+    var a = areaOf(ctx);
     if (!pts.length) { footNote(sb, pal, s.note); return; }
+
     var n = pts.length;
-    var availH = BODY_B - BODY_Y;
-    var gapRow = n > 1 ? Math.min(14, Math.max(6, (availH - n * 46) / (n - 1))) : 0;
-    var rowH = Math.min(74, (availH - gapRow * (n - 1)) / n);
-    gapRow = n > 1 ? Math.max(4, (availH - rowH * n) / (n - 1)) : 0;
+    var titleW = Math.round(a.w * 0.40);
+    var descW = a.w - titleW - 24;
+    var rowH = Math.min(72, (a.h - 6 * (n - 1)) / n);
+    var gapRow = n > 1 ? Math.max(4, (a.h - rowH * n) / (n - 1)) : 0;
 
     for (var i = 0; i < n; i++) {
-      var y = BODY_Y + i * (rowH + gapRow);
+      var y = a.y + i * (rowH + gapRow);
       var pr = splitPair(pts[i]);
       var leftFirst = (i % 2 === 0);
-      var hx = leftFirst ? M : 564, dx = leftFirst ? 400 : M;
-      var hw = leftFirst ? 300 : 300, dw = 468;
+      var hx = leftFirst ? a.x : (a.x + a.w - titleW);
+      var dx = leftFirst ? (a.x + titleW + 24) : a.x;
 
       sb.push(shape({ name: "ZzMark" + (i + 1), x: hx, y: y + 6, w: 4, h: Math.max(12, rowH - 12), fill: pal.accent }));
-      var hsz = Math.max(1150, Math.min(1750, fitFont(pr[0], 1750, hw - 20, rowH, 1.25)));
+      var hsz = Math.max(1150, Math.min(1700, fitFont(pr[0], 1700, titleW - 18, rowH, 1.22)));
       sb.push(shape({
-        name: "ZzTitle" + (i + 1), x: hx + 18, y: y, w: hw - 18, h: rowH, anchor: "ctr",
+        name: "ZzTitle" + (i + 1), x: hx + 16, y: y, w: titleW - 16, h: rowH, anchor: "ctr",
         paras: [para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.ft })],
-          { algn: "l", lineSpcPct: 115000, sz: hsz, color: pal.title, font: pal.ft })]
+          { algn: "l", lineSpcPct: 114000, sz: hsz, color: pal.title, font: pal.ft })]
       }));
       if (pr[1]) {
-        var dsz = Math.max(950, Math.min(1400, fitFont(pr[1], 1400, dw, rowH, 1.35)));
+        var dsz = Math.max(950, Math.min(1350, fitFont(pr[1], 1350, descW, rowH, 1.3)));
         sb.push(shape({
-          name: "ZzDesc" + (i + 1), x: dx, y: y, w: dw, h: rowH, anchor: "ctr",
+          name: "ZzDesc" + (i + 1), x: dx, y: y, w: descW, h: rowH, anchor: "ctr",
           paras: [para([run(pr[1], { sz: dsz, color: pal.text, font: pal.fb })],
-            { algn: "l", lineSpcPct: 130000, sz: dsz, color: pal.text, font: pal.fb })]
+            { algn: "l", lineSpcPct: 128000, sz: dsz, color: pal.text, font: pal.fb })]
         }));
       }
     }
@@ -3713,6 +4419,141 @@ window.XH_POEMS = {
     compare: layCompare, quote: layQuote, table: layTable, zigzag: layZigzag
   };
 
+  /* ---------- 图片落地：封面全幅 / 内页右侧图位 ---------- */
+  function addImages(shapes, L, ctx, pal) {
+    if (!ctx || !ctx.img || !ctx.rid) return;
+    if (L === "cover") {
+      shapes.push(picXml({ name: "CoverImage", x: 0, y: 0, w: W, h: H, img: ctx.img.info, rid: ctx.rid }));
+      // 两层半透明底衬，保证任何亮底图上的标题都能看清
+      shapes.push(shape({ name: "CoverScrim", x: 0, y: 0, w: W, h: H, fill: pal.bg, alpha: 0.46 }));
+      shapes.push(shape({ name: "CoverScrimBand", x: 0, y: 56, w: W, h: 408, fill: pal.bg, alpha: 0.34 }));
+    } else {
+      shapes.push(picXml({
+        name: "SideImage", x: IMG_X, y: IMG_Y, w: IMG_W, h: IMG_H,
+        img: ctx.img.info, rid: ctx.rid, border: pal.cardLine
+      }));
+      shapes.push(shape({ name: "SideImageRule", x: IMG_X, y: IMG_Y, w: 2, h: IMG_H, fill: pal.accent, alpha: 0.5 }));
+    }
+  }
+
+  /* ==========================================================================
+   * 5b. 图片：data URL → 字节 → ppt/media/*
+   * ======================================================================== */
+
+  var IMG_TYPES = {
+    "image/png":  { ext: "png", ct: "image/png" },
+    "image/jpeg": { ext: "jpg", ct: "image/jpeg" },
+    "image/jpg":  { ext: "jpg", ct: "image/jpeg" },
+    "image/gif":  { ext: "gif", ct: "image/gif" }
+  };
+
+  function b64ToBytes(b64) {
+    b64 = String(b64 == null ? "" : b64).replace(/[^A-Za-z0-9+/=]/g, "");
+    if (!b64) return null;
+    var bin = "";
+    if (typeof atob === "function") {
+      try { bin = atob(b64); } catch (e) { return null; }
+    } else if (typeof Buffer !== "undefined") {
+      bin = Buffer.from(b64, "base64").toString("binary");
+    } else {
+      return null;
+    }
+    var n = bin.length, out = new Uint8Array(n), i;
+    for (i = 0; i < n; i++) out[i] = bin.charCodeAt(i) & 0xff;
+    return out;
+  }
+
+  function subBytes(b, s, e) {
+    s = Math.max(0, Math.min(b.length, s));
+    e = Math.max(s, Math.min(b.length, e));
+    var o = new Uint8Array(e - s);
+    o.set(b.subarray(s, e));
+    return o;
+  }
+  function imgKey(b) {
+    return b.length + ":" + crc32(b).toString(16) + ":" + crc32(subBytes(b, 0, 96)).toString(16);
+  }
+  function be32(b, i) {
+    return ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+  }
+  function jpegSize(b) {
+    var i = 2, n = b.length, m, len;
+    while (i < n - 9) {
+      if (b[i] !== 0xff) { i++; continue; }
+      m = b[i + 1];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+        return { h: (b[i + 5] << 8) | b[i + 6], w: (b[i + 7] << 8) | b[i + 8] };
+      }
+      len = (b[i + 2] << 8) | b[i + 3];
+      if (len < 2) return null;
+      i += 2 + len;
+    }
+    return null;
+  }
+  function imgSize(b, ext) {
+    try {
+      if (ext === "png") {
+        if (b[0] !== 0x89 || b[1] !== 0x50) return null;
+        return { w: be32(b, 16), h: be32(b, 20) };
+      }
+      if (ext === "gif") return { w: b[6] | (b[7] << 8), h: b[8] | (b[9] << 8) };
+      if (ext === "jpg") return jpegSize(b);
+    } catch (e) { }
+    return null;
+  }
+
+  /** data:image/png;base64,xxx → {data, ext, ct, w, h, key}；不支持的一律返回 null（忽略） */
+  function parseImg(src) {
+    var s = String(src == null ? "" : src).trim();
+    if (!s) return null;
+    var m = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/i.exec(s);
+    if (!m) return null;
+    var mime = String(m[1] || "image/png").toLowerCase();
+    var t = IMG_TYPES[mime];
+    if (!t) return null;                       // 只认 png / jpeg / gif
+    var data;
+    if (m[2]) {
+      data = b64ToBytes(m[3]);
+    } else {
+      try { data = utf8(decodeURIComponent(m[3])); } catch (e) { data = null; }
+    }
+    if (!data || data.length < 32) return null;
+    var size = imgSize(data, t.ext);
+    return {
+      data: data, ext: t.ext, ct: t.ct,
+      w: size ? size.w : 0, h: size ? size.h : 0,
+      key: imgKey(data)
+    };
+  }
+
+  /** 按目标框比例做居中裁剪，避免方图被拉成 16:9（srcRect 单位 1/1000 %） */
+  function srcRectXml(img, boxW, boxH) {
+    if (!img || !img.w || !img.h || !boxW || !boxH) return "";
+    var na = img.w / img.h, ta = boxW / boxH;
+    if (Math.abs(na - ta) < 0.02) return "";
+    var l = 0, t = 0, r = 0, b = 0, c;
+    if (na > ta) { c = (1 - ta / na) / 2; l = c; r = c; }
+    else { c = (1 - na / ta) / 2; t = c; b = c; }
+    function p(v) { return Math.round(Math.max(0, Math.min(0.249, v)) * 100000); }
+    return '<a:srcRect l="' + p(l) + '" t="' + p(t) + '" r="' + p(r) + '" b="' + p(b) + '"/>';
+  }
+
+  function picXml(o) {
+    var xfrm = '<a:xfrm><a:off x="' + emu(o.x) + '" y="' + emu(o.y) + '"/>'
+      + '<a:ext cx="' + emu(Math.max(1, o.w)) + '" cy="' + emu(Math.max(1, o.h)) + '"/></a:xfrm>';
+    var ln = o.border
+      ? '<a:ln w="12700"><a:solidFill><a:srgbClr val="' + o.border + '"><a:alpha val="45000"/></a:srgbClr></a:solidFill></a:ln>'
+      : '<a:ln><a:noFill/></a:ln>';
+    return '<p:pic><p:nvPicPr>'
+      + '<p:cNvPr id="' + nid() + '" name="' + esc(o.name || "Picture") + '"/>'
+      + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
+      + '<p:blipFill><a:blip r:embed="' + esc(o.rid) + '"/>'
+      + srcRectXml(o.img, o.w, o.h)
+      + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>'
+      + '<p:spPr>' + xfrm + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' + ln + '</p:spPr>'
+      + '</p:pic>';
+  }
+
   /* ==========================================================================
    * 6. build()
    * ======================================================================== */
@@ -3721,17 +4562,18 @@ window.XH_POEMS = {
     deck = (deck && typeof deck === "object") ? deck : {};
     opts = (opts && typeof opts === "object") ? opts : {};
     var pal = palette(opts);
+    var i;
 
+    /* ---- 0) 幻灯片归一（空 deck / 脏数据都不崩） ---- */
     var src = (deck.slides instanceof Array) ? deck.slides : [];
     var slides = [];
-    for (var i = 0; i < src.length; i++) {
-      var s = src[i];
-      if (s == null) { s = {}; }
-      else if (typeof s === "string") { s = { title: s, layout: "bullets", content: [] }; }
-      else if (typeof s !== "object") { s = {}; }
-      slides.push(s);
+    for (i = 0; i < src.length; i++) {
+      var s0 = src[i];
+      if (s0 == null) s0 = {};
+      else if (typeof s0 === "string") s0 = { title: s0, layout: "bullets", content: [] };
+      else if (typeof s0 !== "object") s0 = {};
+      slides.push(s0);
     }
-    // 空 deck 兜底：给一张封面，保证产物一定能被 PowerPoint 打开
     if (!slides.length) {
       slides.push({
         title: String(deck.title || "星火PPT"),
@@ -3739,37 +4581,77 @@ window.XH_POEMS = {
         layout: "cover", content: [], note: ""
       });
     }
-
     var n = slides.length;
-    var slideXmls = [], noteXmls = [], notes = [];
-    for (var k = 0; k < n; k++) {
-      var sl = slides[k];
+
+    /* ---- 1) 预解析图片：同一张图去重成一个 part ---- */
+    var media = [], mediaIdx = {}, slideImg = [];
+    for (i = 0; i < n; i++) {
+      var im = parseImg(slides[i].img);
+      if (!im) { slideImg.push(null); continue; }
+      if (mediaIdx[im.key] == null) {
+        mediaIdx[im.key] = media.length + 1;
+        media.push({ idx: media.length + 1, ext: im.ext, ct: im.ct, data: im.data, info: im });
+      }
+      var midx = mediaIdx[im.key];
+      slideImg.push({ info: im, part: "image" + midx + "." + media[midx - 1].ext });
+    }
+
+    /* ---- 2) 每页 rels 的 rId 先定死（layout / notes / image） ---- */
+    var notes = [], slideRels = [], slideImgRid = [];
+    for (i = 0; i < n; i++) {
+      notes.push(String((slides[i] && slides[i].note) || "").trim());
+      var rels = [{ id: "rId1", type: RT.slideLayout, target: "../slideLayouts/slideLayout1.xml" }];
+      var rn = 2, rid = null;
+      if (notes[i]) {
+        rels.push({ id: "rId" + (rn++), type: RT.notesSlide, target: "../notesSlides/notesSlide" + (i + 1) + ".xml" });
+      }
+      if (slideImg[i]) {
+        rid = "rId" + (rn++);
+        rels.push({ id: rid, type: RT.image, target: "../media/" + slideImg[i].part });
+      }
+      slideRels.push(rels);
+      slideImgRid.push(rid);
+    }
+
+    /* ---- 3) 逐页渲染（图先入，保证文字压在图上） ---- */
+    var slideXmls = [];
+    for (i = 0; i < n; i++) {
+      var sl = slides[i];
+      var L = normLayout(sl.layout);
+      var fn = RENDER[L] || RENDER.bullets;      // 未知版式 → bullets
+      var ctx = {
+        pal: pal,
+        img: slideImg[i],
+        rid: slideImgRid[i],
+        area: { x: M, y: BODY_Y, w: CW, h: BODY_B - BODY_Y }
+      };
       resetId();
       var shapes = [];
-      var L = normLayout(sl.layout);
-      var fn = RENDER[L] || RENDER.bullets;   // 未知版式 → 退回 bullets，不崩
+      addImages(shapes, L, ctx, pal);
+      if (ctx.img && L !== "cover") {
+        ctx.area = { x: M, y: BODY_Y, w: TEXT_W, h: BODY_B - BODY_Y };
+      }
       try {
-        fn(shapes, pal, deck, sl);
+        fn(shapes, pal, deck, sl, ctx);
       } catch (e) {
-        // 任何渲染异常都不让整份导出失败：退化成最简单的标题 + 内容
+        // 任何渲染异常都不让整份导出失败：退化成「标题 + 简单要点」
         shapes.length = 0;
         resetId();
+        addImages(shapes, L, ctx, pal);
         head(shapes, pal, sl && sl.title);
-        var pts = contentOf(sl), paras = [], q;
+        var pts = contentOf(sl), paras = [], q, a2 = areaOf(ctx);
         for (q = 0; q < pts.length; q++) {
           paras.push(para([run(pts[q], { sz: 1500, color: pal.text, font: pal.fb })],
             { algn: "l", bulletChar: "·", marL: 240000, indent: -240000, lineSpcPct: 140000, spcAftPts: 8,
               sz: 1500, color: pal.text, font: pal.fb }));
         }
-        shapes.push(shape({ name: "Fallback", x: M, y: BODY_Y, w: CW, h: BODY_B - BODY_Y, anchor: "t", paras: paras }));
+        shapes.push(shape({ name: "Fallback", x: a2.x, y: a2.y, w: a2.w, h: a2.h, anchor: "t", paras: paras }));
         footNote(shapes, pal, sl && sl.note);
       }
       slideXmls.push(slideXml(pal, shapes));
-      var nt = String((sl && sl.note) || "").trim();
-      notes.push(nt);
     }
 
-    /* ---- 关系 id 分配 ---- */
+    /* ---- 4) presentation.xml.rels ---- */
     var next = 1, presRels = [];
     var ridMaster = "rId" + (next++);
     presRels.push({ id: ridMaster, type: RT.slideMaster, target: "slideMasters/slideMaster1.xml" });
@@ -3778,9 +4660,9 @@ window.XH_POEMS = {
 
     var slideRids = [], i2;
     for (i2 = 0; i2 < n; i2++) {
-      var rid = "rId" + (next++);
-      slideRids.push(rid);
-      presRels.push({ id: rid, type: RT.slide, target: "slides/slide" + (i2 + 1) + ".xml" });
+      var prid = "rId" + (next++);
+      slideRids.push(prid);
+      presRels.push({ id: prid, type: RT.slide, target: "slides/slide" + (i2 + 1) + ".xml" });
     }
     var noteSlideNames = [];
     for (i2 = 0; i2 < n; i2++) {
@@ -3791,11 +4673,11 @@ window.XH_POEMS = {
     presRels.push({ id: "rId" + (next++), type: RT.viewProps, target: "viewProps.xml" });
     presRels.push({ id: "rId" + (next++), type: RT.tableStyles, target: "tableStyles.xml" });
 
-    /* ---- 组装所有部件 ---- */
+    /* ---- 5) 组装部件 ---- */
     var files = [];
     function add(name, xml) { files.push({ name: name, data: utf8(xml) }); }
 
-    add("[Content_Types].xml", contentTypesXml(n, noteSlideNames));
+    add("[Content_Types].xml", contentTypesXml(n, noteSlideNames, media));
     add("_rels/.rels", relsXml([
       { id: "rId1", type: RT.officeDocument, target: "ppt/presentation.xml" },
       { id: "rId2", type: RT.coreProps, target: "docProps/core.xml" },
@@ -3829,12 +4711,7 @@ window.XH_POEMS = {
 
     for (i2 = 0; i2 < n; i2++) {
       add("ppt/slides/slide" + (i2 + 1) + ".xml", slideXmls[i2]);
-      // 备注关系挂在「幻灯片」下，不是挂在 presentation.xml 下（这是 OOXML 的硬规矩）
-      var srels = [{ id: "rId1", type: RT.slideLayout, target: "../slideLayouts/slideLayout1.xml" }];
-      if (notes[i2]) {
-        srels.push({ id: "rId2", type: RT.notesSlide, target: "../notesSlides/notesSlide" + (i2 + 1) + ".xml" });
-      }
-      add("ppt/slides/_rels/slide" + (i2 + 1) + ".xml.rels", relsXml(srels));
+      add("ppt/slides/_rels/slide" + (i2 + 1) + ".xml.rels", relsXml(slideRels[i2]));
     }
     for (i2 = 0; i2 < n; i2++) {
       if (!notes[i2]) continue;
@@ -3843,6 +4720,10 @@ window.XH_POEMS = {
         { id: "rId1", type: RT.slide, target: "../slides/slide" + (i2 + 1) + ".xml" },
         { id: "rId2", type: RT.notesMaster, target: "../notesMasters/notesMaster1.xml" }
       ]));
+    }
+    // 图片是二进制，直接塞 Uint8Array，不过 utf8()
+    for (i2 = 0; i2 < media.length; i2++) {
+      files.push({ name: "ppt/media/image" + media[i2].idx + "." + media[i2].ext, data: media[i2].data });
     }
 
     return zip(files);
@@ -3865,6 +4746,358 @@ window.XH_POEMS = {
   if (typeof module !== "undefined" && module && module.exports) module.exports = api;
 
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
+
+
+/* ============ 装饰系统 ============ */
+/* ============================================================================
+   星火PPT · 装饰库 decorations.js
+   ----------------------------------------------------------------------------
+   三件事：
+     1) 12 个母题的名字表 + 模板 id → 母题 class 的映射（decoClass）
+     2) 22 个线条风格统一的内联 SVG 图标（currentColor 上色、1em 尺寸）
+     3) 落位与自检工具：applyDeco / autoApply / observe / checkTextOverlap / audit
+
+   用法（最小侵入）：
+     <link rel="stylesheet" href="dev/decorations.css">
+     <script src="dev/decorations.js"><\/script>
+     <script>XH_DECO.observe(document.getElementById("stage"));<\/script>
+     —— 之后每次渲染出的 .page.theme-tN 会被自动挂上对应母题。
+     关掉全部装饰：XH_DECO.setDecoOn(false)（等价于 --deco-on:0）。
+   ========================================================================== */
+(function (w, d) {
+  "use strict";
+
+  /* ---------------------------------------------------------------- 母题表 */
+  var MOTIFS = [
+    "starfield",  // t1  长夜星火
+    "moon",       // t2  月白清光
+    "ridge",      // t3  青峰林海
+    "seal",       // t4  鎏金案牍
+    "mist",       // t5  琥珀长夜
+    "wave",       // t6  沧海晨光
+    "grid",       // t7  深蓝图谱
+    "diagonal",   // t8  墨绿咨询
+    "paper",      // t9  米白学术
+    "bars",       // t10 黑金财报
+    "rings",      // t11 靛青企划
+    "tape"        // t12 暖砂手记
+  ];
+
+  var TPL_MOTIF = {
+    t1: "starfield", t2: "moon", t3: "ridge",  t4: "seal",
+    t5: "mist",      t6: "wave", t7: "grid",   t8: "diagonal",
+    t9: "paper",     t10: "bars", t11: "rings", t12: "tape"
+  };
+
+  /* 每套模板建议配的通用件（给 UI 或一键套用时用；不传就只上母题） */
+  var TPL_KIT = {
+    t1:  [{ type: "title", shape: "diamond" }, { type: "footer", variant: "fade" }],
+    t2:  [{ type: "title", shape: "ring" },    { type: "footer", variant: "double" }],
+    t3:  [{ type: "title", shape: "bar" },     { type: "corner", pos: "bl", variant: "hair" }],
+    t4:  [{ type: "title", shape: "square" },  { type: "footer", variant: "double" }],
+    t5:  [{ type: "title", shape: "dot" },     { type: "footer", variant: "fade" }],
+    t6:  [{ type: "title", shape: "dash" },    { type: "footer", variant: "fade" }],
+    t7:  [{ type: "title", shape: "ticks" },   { type: "footer", variant: "tick" }],
+    t8:  [{ type: "title", shape: "square" },  { type: "corner", pos: "br", variant: "hair" }],
+    t9:  [{ type: "title", shape: "bar" },     { type: "footer", variant: "double" }],
+    t10: [{ type: "title", shape: "diamond" }, { type: "footer", variant: "bar" }],
+    t11: [{ type: "title", shape: "dot" },     { type: "corner", pos: "tl", variant: "hair" }],
+    t12: [{ type: "title", shape: "chev" },    { type: "footer", variant: "dotted" }]
+  };
+
+  /* ---------------------------------------------------------------- 图标库 */
+  function svg(inner) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+      inner + "</svg>";
+  }
+
+  var ICONS = {
+    /* 星火：四角星 —— 品牌主图标 */
+    spark: svg('<path d="M12 3.2 13.85 10.15 20.8 12 13.85 13.85 12 20.8 10.15 13.85 3.2 12 10.15 10.15Z"/>'),
+    /* 靶心：同心圆 + 圆心 */
+    target: svg('<circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.4"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>'),
+    /* 路线：S 形路径 + 两个节点 */
+    route: svg('<path d="M4.6 19.2c4.2 0 3.4-13.6 7.6-13.6 3.4 0 3.6 8.4 7.2 8.4"/><circle cx="4.6" cy="19.2" r="1.7"/><circle cx="19.4" cy="14" r="1.7"/>'),
+    /* 灯泡：想法 */
+    bulb: svg('<path d="M12 3.2a6 6 0 0 0-3.3 11c.7.5 1.1 1.2 1.2 2h4.2c.1-.8.5-1.5 1.2-2A6 6 0 0 0 12 3.2Z"/><path d="M10 19h4M10.9 21.4h2.2"/>'),
+    /* 图表：坐标轴 + 上升折线 */
+    chart: svg('<path d="M4 4v16h16"/><path d="M7.2 15.6 11 11.4l2.9 2.4 4.9-5.7"/><path d="M15.6 8.1h3.2v3.2"/>'),
+    /* 书：资料 / 学术 */
+    book: svg('<path d="M4 5.4c2.1-1.5 5-1.5 8 0 3-1.5 5.9-1.5 8 0v13.4c-2.1-1.5-5-1.5-8 0-3-1.5-5.9-1.5-8 0Z"/><path d="M12 5.4v13.4"/>'),
+    /* 盾：安全 / 保障 */
+    shield: svg('<path d="M12 3.2 19.3 6v6.4c0 4.4-3.3 7.4-7.3 8.8-4-1.4-7.3-4.4-7.3-8.8V6Z"/><path d="M9.1 12.1 11.3 14.3 15.4 9.9"/>'),
+    /* 时钟：时间 / 节奏 */
+    clock: svg('<circle cx="12" cy="12" r="8.6"/><path d="M12 6.9v5.4l3.6 2"/>'),
+    /* 对话：沟通 */
+    chat: svg('<path d="M4.6 6.4A2.4 2.4 0 0 1 7 4h10a2.4 2.4 0 0 1 2.4 2.4v7.2A2.4 2.4 0 0 1 17 16h-6.6L6 19.6V16h-.6A1.4 1.4 0 0 1 4 14.6Z"/>'),
+    /* 齿轮：设置 / 机制 */
+    gear: svg('<circle cx="12" cy="12" r="3.1"/><path d="M12 2.8v2.6M12 18.6v2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M2.8 12h2.6M18.6 12h2.6M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/>'),
+    /* 连接：环节 */
+    link: svg('<path d="M9.2 14.8 14.8 9.2"/><path d="M7.6 12.4 5.7 14.3a3.2 3.2 0 0 0 4.5 4.5L12.1 17"/><path d="M16.4 11.6l1.9-1.9a3.2 3.2 0 0 0-4.5-4.5L11.9 7"/>'),
+    /* 旗：里程碑 */
+    flag: svg('<path d="M6 21V3.6"/><path d="M6 4.6c3-1.6 7.2 1.4 11.8-.2v8.2C13.2 14.2 9 11.2 6 12.8"/>'),
+    /* 叶：生长 */
+    leaf: svg('<path d="M20.2 3.8C11.4 3.8 5.2 7.6 5.2 15.1c0 2.6 1 4 2 5C13.6 20.1 20.2 13.6 20.2 3.8Z"/><path d="M7.2 20.1C9.8 15.4 13.8 10.8 17.8 8.2"/>'),
+    /* 罗盘：方向 */
+    compass: svg('<circle cx="12" cy="12" r="8.6"/><path d="M14.9 9.1 10.6 10.6 9.1 14.9 13.4 13.4Z"/>'),
+    /* 印章：落款 / 权威 */
+    seal: svg('<rect x="4" y="4" width="16" height="16" rx="1.8"/><rect x="8.4" y="8.4" width="7.2" height="7.2"/><path d="M12 4v4.4M12 15.6V20"/>'),
+    /* 网格：结构 */
+    grid: svg('<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="1.4"/><path d="M9.2 3.6v16.8M14.8 3.6v16.8M3.6 9.2h16.8M3.6 14.8h16.8"/>'),
+    /* 波浪：趋势 / 节奏 */
+    wave: svg('<path d="M3 13.8c2-2.6 4-2.6 6 0s4 2.6 6 0 4-2.6 6 0"/><path d="M3 18.4c2-2.6 4-2.6 6 0s4 2.6 6 0 4-2.6 6 0"/>'),
+    /* 月相 */
+    moon: svg('<path d="M19.7 15.3A8.4 8.4 0 1 1 8.7 4.3a6.8 6.8 0 0 0 11 11Z"/>'),
+    /* 放大镜：洞察 */
+    search: svg('<circle cx="10.6" cy="10.6" r="6.2"/><path d="M15.2 15.2 20.4 20.4"/>'),
+    /* 勾选：达成 */
+    check: svg('<circle cx="12" cy="12" r="8.6"/><path d="M7.9 12.3 10.9 15.4 16.3 9.6"/>'),
+    /* 箭头：增长 / 指向 */
+    arrow: svg('<path d="M6 18 18 6"/><path d="M11.2 6H18v6.8"/>'),
+    /* 层叠：结构 / 体系 */
+    layers: svg('<path d="M12 3.6 20.4 8 12 12.4 3.6 8Z"/><path d="M3.6 12.2 12 16.6l8.4-4.4"/><path d="M3.6 16.2 12 20.6l8.4-4.4"/>'),
+    /* 定位：落点 */
+    pin: svg('<path d="M12 21.2c-4.4-4.8-6.8-7.6-6.8-10.8a6.8 6.8 0 0 1 13.6 0c0 3.2-2.4 6-6.8 10.8Z"/><circle cx="12" cy="10.3" r="2.5"/>'),
+    /* 闪电：效率 */
+    bolt: svg('<path d="M13.4 3 6 13.4h5.2L10.6 21 18 10.6h-5.2Z"/>'),
+    /* 团队：人 */
+    users: svg('<circle cx="9.2" cy="8.2" r="3.3"/><path d="M3.6 19.6a5.6 5.6 0 0 1 11.2 0"/><path d="M16.2 5.4a3.3 3.3 0 0 1 0 6"/><path d="M17.6 14.6a5.6 5.6 0 0 1 3.2 5"/>')
+  };
+
+  /* ------------------------------------------------------------ 落位工具 */
+
+  /* 读取模板方声明的母题：.theme-tN { --deco-motif: grid }（也可以是 "motif-grid" 或 none）。
+     这样模板方（templates.css / 设计规范侧）与装饰方解耦：以后加模板不用改本文件。 */
+  function readMotifVar(el) {
+    if (!el || !w.getComputedStyle) return "";
+    try {
+      var v = w.getComputedStyle(el).getPropertyValue("--deco-motif");
+      return v ? String(v).trim() : "";
+    } catch (e) { return ""; }
+  }
+
+  function probeOf(tplId) {
+    var id = String(tplId || "").trim().toLowerCase();
+    if (!/^t\d{1,2}$/.test(id)) return null;
+    return d.querySelector(".theme-" + id) || d.querySelector("." + id);
+  }
+
+  /* "t7" → "motif-grid"
+     ① 先读 --deco-motif（页面元素 → 该模板的任意元素 → 根节点）
+     ② 读不到再用本文件的兜底映射表
+     未知 id 返回 ""（等于不上装饰 = 零回归） */
+  function decoClass(tplId, pageEl) {
+    var id = String(tplId || "").trim().toLowerCase();
+    var raw = readMotifVar(pageEl) || readMotifVar(probeOf(id)) || readMotifVar(d.documentElement);
+    if (raw) {
+      if (/^none$/i.test(raw)) return "";
+      if (raw.indexOf("motif-") === 0) return raw;
+      if (raw === "0" || raw === "off") return "";
+      return "motif-" + raw.replace(/^\./, "");
+    }
+    var m = TPL_MOTIF[id];
+    return m ? "motif-" + m : "";
+  }
+
+  function clearDeco(pageEl) {
+    if (!pageEl || !pageEl.classList) return pageEl;
+    MOTIFS.forEach(function (m) { pageEl.classList.remove("motif-" + m); });
+    pageEl.classList.remove("has-deco", "deco-off");
+    Array.prototype.forEach.call(
+      pageEl.querySelectorAll(":scope > .deco-corner, :scope > .deco-title-mark, :scope > .deco-footer-rule"),
+      function (n) { n.parentNode.removeChild(n); }
+    );
+    return pageEl;
+  }
+
+  /* 造一个通用件节点 */
+  function buildComponent(spec) {
+    var el = d.createElement("div");
+    el.setAttribute("aria-hidden", "true");
+    if (typeof spec === "string") spec = { type: spec };
+    spec = spec || {};
+    if (spec.type === "corner") {
+      el.className = "deco-corner " + (spec.pos || "tr") + (spec.variant ? " " + spec.variant : "");
+    } else if (spec.type === "footer") {
+      el.className = "deco-footer-rule " + (spec.variant || "solid");
+    } else { /* title */
+      el.className = "deco-title-mark" + (spec.shape ? " " + spec.shape : " square") +
+        (spec.pos === "rm" ? " rm" : "");
+      if (spec.icon && ICONS[spec.icon]) el.innerHTML = ICONS[spec.icon];
+    }
+    if (spec.style) el.setAttribute("style", spec.style);
+    return el;
+  }
+
+  /* 给一个 .page 挂母题（可选挂通用件）。kit 省略 = 不挂通用件。 */
+  function applyDeco(pageEl, tplId, kit) {
+    if (!pageEl) return pageEl;
+    var cls = decoClass(tplId, pageEl);
+    if (!cls) return pageEl;
+    clearDeco(pageEl);
+    pageEl.classList.add("has-deco", cls);
+    var specs = kit === true ? (TPL_KIT[String(tplId).toLowerCase()] || []) : (kit || []);
+    // 倒序前插，保持传入顺序
+    for (var i = specs.length - 1; i >= 0; i--) {
+      pageEl.insertBefore(buildComponent(specs[i]), pageEl.firstChild);
+    }
+    return pageEl;
+  }
+
+  /* 从 .page 的现有 class 里认出模板（theme-tN 或 tN） */
+  function tplIdOf(pageEl) {
+    var m = /(?:^|\s)(?:theme-)?(t\d{1,2})(?:\s|$)/.exec(pageEl.className);
+    return m ? m[1] : "";
+  }
+
+  /* 扫描一棵子树，把还没挂母题的 .page 全部补上 */
+  function autoApply(root, kit) {
+    root = root || d;
+    var list = root.querySelectorAll ? root.querySelectorAll(".page") : [];
+    var n = 0;
+    Array.prototype.forEach.call(list, function (p) {
+      var id = tplIdOf(p);
+      if (id && !/\bmotif-/.test(p.className)) { applyDeco(p, id, kit); n++; }
+    });
+    return n;
+  }
+
+  /* 监听后续渲染（预览切换、翻页都会重建 .page） */
+  var mo = null;
+  function observe(root, kit) {
+    root = root || d.body;
+    autoApply(root, kit);
+    if (mo) mo.disconnect();
+    if (!w.MutationObserver) return false;
+    mo = new w.MutationObserver(function (recs) {
+      var hit = false;
+      recs.forEach(function (r) {
+        Array.prototype.forEach.call(r.addedNodes || [], function (n) {
+          if (n.nodeType !== 1) return;
+          if (n.classList && n.classList.contains("page")) {
+            var id = tplIdOf(n);
+            if (id) { applyDeco(n, id, kit); hit = true; }
+          } else if (n.querySelectorAll && n.querySelectorAll(".page").length) {
+            hit = autoApply(n, kit) > 0 || hit;
+          }
+        });
+      });
+      void hit;
+    });
+    mo.observe(root, { childList: true, subtree: true });
+    return true;
+  }
+
+  function setDecoOn(on) {
+    d.documentElement.style.setProperty("--deco-on", on === false || on === 0 || on === "0" ? "0" : "1");
+  }
+
+  /* ------------------------------------------------------------ 自检工具 */
+
+  function textRects(pageEl) {
+    var out = [], walker = d.createTreeWalker(pageEl, w.NodeFilter.SHOW_TEXT, null);
+    var node;
+    while ((node = walker.nextNode())) {
+      if (!node.nodeValue || !node.nodeValue.trim()) continue;
+      var host = node.parentElement;
+      if (!host) continue;
+      if (host.closest(".deco-corner,.deco-title-mark,.deco-footer-rule")) continue;
+      var rg = d.createRange();
+      rg.selectNodeContents(node);
+      var rects = rg.getClientRects();
+      for (var i = 0; i < rects.length; i++) {
+        var r = rects[i];
+        if (r.width > 0.4 && r.height > 0.4) {
+          out.push({ node: node, rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } });
+        }
+      }
+    }
+    return out;
+  }
+
+  function decoRects(pageEl) {
+    return Array.prototype.map.call(
+      pageEl.querySelectorAll(".deco-corner,.deco-title-mark,.deco-footer-rule"),
+      function (el) {
+        var r = el.getBoundingClientRect();
+        return { el: el, className: el.className, rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } };
+      }
+    );
+  }
+
+  function inter(a, b) {
+    var w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    var h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    return w > 0 && h > 0 ? w * h : 0;
+  }
+
+  /* 几何自检：通用件（真元素）与文字外框的相交面积。
+     ::before/::after 上的母题层无法用 DOM 测量，由像素级校验负责（见 README）。 */
+  function checkTextOverlap(pageEl) {
+    var texts = textRects(pageEl), decos = decoRects(pageEl), bad = [];
+    decos.forEach(function (dc) {
+      var area = (dc.rect.right - dc.rect.left) * (dc.rect.bottom - dc.rect.top);
+      var hit = 0, sample = null;
+      texts.forEach(function (t) {
+        var a = inter(dc.rect, t.rect);
+        if (a > 0) { hit += a; if (!sample) sample = t.node.nodeValue.trim().slice(0, 18); }
+      });
+      if (hit > 0) bad.push({ deco: dc.className, text: sample, coverRatio: area ? hit / area : 1 });
+    });
+    return { page: pageEl.className, textNodes: texts.length, decoEls: decos.length, overlaps: bad };
+  }
+
+  /* 页面文字联合外框（占页面百分比），用于核对装饰是否落在空白带 */
+  function textBox(pageEl) {
+    var t = textRects(pageEl);
+    if (!t.length) return null;
+    var pr = pageEl.getBoundingClientRect();
+    var box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+    t.forEach(function (x) {
+      box.left = Math.min(box.left, x.rect.left);
+      box.top = Math.min(box.top, x.rect.top);
+      box.right = Math.max(box.right, x.rect.right);
+      box.bottom = Math.max(box.bottom, x.rect.bottom);
+    });
+    return {
+      left: +((box.left - pr.left) / pr.width * 100).toFixed(2),
+      top: +((box.top - pr.top) / pr.height * 100).toFixed(2),
+      right: +((box.right - pr.left) / pr.width * 100).toFixed(2),
+      bottom: +((box.bottom - pr.top) / pr.height * 100).toFixed(2)
+    };
+  }
+
+  function audit(root) {
+    var list = (root || d).querySelectorAll(".page");
+    return Array.prototype.map.call(list, function (p) {
+      var r = checkTextOverlap(p);
+      r.textBox = textBox(p);
+      return r;
+    });
+  }
+
+  /* ---------------------------------------------------------------- 导出 */
+  w.XH_DECO = {
+    motifs: MOTIFS,
+    icons: ICONS,
+    decoClass: decoClass,
+    readMotifVar: readMotifVar,
+    tplMotif: TPL_MOTIF,
+    tplKit: TPL_KIT,
+    icon: function (name) { return ICONS[name] || ""; },
+    applyDeco: applyDeco,
+    clearDeco: clearDeco,
+    autoApply: autoApply,
+    observe: observe,
+    tplIdOf: tplIdOf,
+    setDecoOn: setDecoOn,
+    checkTextOverlap: checkTextOverlap,
+    textRectCount: function (p) { return textRects(p).length; },
+    textBox: textBox,
+    audit: audit
+  };
+})(window, document);
 
 
 /* ---- 状态检查 ---- */
@@ -4363,12 +5596,17 @@ $("#btn-export-pptx").onclick=()=>{
     const deck={
       title: state.doctor.title || "星火PPT",
       subtitle: state.doctor.subtitle || "",
-      slides: state.slides.map(s=>({
-        title: s.title||"",
-        layout: normLayout(s.layout),
-        content: (s.content||[]).map(String),
-        note: s.note||""
-      }))
+      slides: state.slides.map(s=>{
+        const lay = normLayout(s.layout);
+        return {
+          title: s.title||"",
+          layout: lay,
+          content: (s.content||[]).map(String),
+          note: s.note||"",
+          /* 配图也要进 pptx：封面用全局封面图，其余页用本页图 */
+          img: s.img || (lay==="cover" ? (state.coverImg||"") : "")
+        };
+      })
     };
     const opts = readThemeColors(state.template);
     const bytes = XH_PPTX.build(deck, opts);      /* 同步返回 Uint8Array */
