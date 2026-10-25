@@ -1562,7 +1562,7 @@ $("#enh-ok").onclick=()=>{
         a.className = 'bgm-player';
         a.setAttribute('aria-hidden', 'true');
         a.loop = true;                    // 单曲循环
-        a.preload = 'auto';
+        a.preload = 'metadata';   /* 改为 metadata：自动播放被拒时不会白拉整首 9.6MB */
         a.setAttribute('playsinline', '');
         a.setAttribute('webkit-playsinline', '');
         addEvt(a, 'error', onAudioError, false);
@@ -1909,6 +1909,7 @@ async function generate(){
   if(!text){toast("请先输入要生成的内容");return;}
   if(generating)return;
   generating=true;setUiGenerating(true);
+  try{ if(bgm&&bgm.duckOn) bgm.duckOn(); }catch(e){}   /* 生成中：音乐压低 */
   state.doctor=null;state.slides=[];state.current=0;renderStage();
   resetCanvas();
   $("#progressbar").classList.add("show");$("#progfill").style.width="6%";
@@ -1959,6 +1960,7 @@ async function generate(){
     resetCanvas();
   }
   state.genText="";
+  try{ if(bgm&&bgm.duckOff) bgm.duckOff(); }catch(e){}  /* 结束（含失败路径）：恢复音量 */
   generating=false;setUiGenerating(false);
   $("#progressbar").classList.remove("show");
   if(state.doctor)persist();
