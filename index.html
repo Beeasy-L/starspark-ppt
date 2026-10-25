@@ -751,6 +751,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.5 — 导出真的是 .pptx 了</div>
+        <div class="logdate">2026-10-25</div>
+        <ul class="loglist">
+          <li><b>导出 .pptx 不再是给一个 .py 脚本</b>：以前点导出会下载一段 Python 代码，用户还得自己装环境去跑——那不是导出。现在点一下，<b>直接拿到一个 PowerPoint 能打开的 .pptx 文件</b>。</li>
+          <li><b>文件是自己生成的，没引任何库</b>：ZIP 打包和 OOXML 全部手写，纯浏览器内完成，所以纯网页版也能用，不用服务器。</li>
+          <li><b>12 种版式在 pptx 里各自独立排版</b>：封面居中大标题、大数字页、时间轴、流程、左右对照、金句、表格、交错——不是清一色要点列表。每页的收束句作为备注一起带走。</li>
+          <li><b>配色跟着你选的模板走</b>：导出时读取当前模板的实际颜色。</li>
+          <li><b>体积</b>：8 页约 108 KB，不用压缩库。</li>
+        </ul>
         <div class="logver">V1.4 — 把「生成质量」往上抬一档</div>
         <div class="logdate">2026-10-25</div>
         <ul class="loglist">
@@ -929,6 +938,35 @@ function renderSkills(){
   document.querySelectorAll(".skill").forEach(el=>el.onclick=()=>{
     state.skill=el.dataset.k;renderSkills();});
 }
+/* 从当前模板读取实际配色（解析 CSS 变量，供 .pptx 使用） */
+function readThemeColors(tplId){
+  const t = (typeof TPL!=="undefined" ? TPL.find(x=>x.id===tplId) : null) || (TPL && TPL[0]);
+  const wrap=document.createElement("div");
+  wrap.className="page "+(t?t.cls:"theme-t1")+" bullets";
+  wrap.style.cssText="position:fixed;left:-99999px;top:0;width:240px;height:135px;overflow:hidden";
+  wrap.innerHTML='<div class="pt">x</div><ul class="ulist"><li>x</li></ul><div class="pnote">x</div>';
+  document.body.appendChild(wrap);
+  const hex=function(col){
+    const m=String(col).match(/\d+/g);
+    if(!m||m.length<3) return null;
+    return m.slice(0,3).map(function(n){const h=(+n).toString(16);return h.length<2?"0"+h:h;}).join("").toUpperCase();
+  };
+  const pt=wrap.querySelector(".pt"), li=wrap.querySelector(".ulist li"), pn=wrap.querySelector(".pnote");
+  const bi=getComputedStyle(wrap).backgroundImage || "";
+  const bm=bi.match(/rgba?\(([^)]+)\)/);
+  const out={
+    bg: (bm && hex("rgb("+bm[1]+")")) || "0D1226",
+    title: hex(getComputedStyle(pt).color) || "FFD98A",
+    text: hex(getComputedStyle(li).color) || "ECEAF4",
+    muted: hex(getComputedStyle(pn).color) || "B7BDDA",
+    accent: hex(getComputedStyle(li,"::before").backgroundColor) || hex(getComputedStyle(pt).color) || "F2C66D"
+  };
+  const fam=(getComputedStyle(pt).fontFamily||"").split(",")[0].replace(/["']/g,"").trim();
+  if(fam) out.fontTitle=fam;
+  wrap.remove();
+  return out;
+}
+
 function renderTpls(){
   /* 用真实渲染做迷你预览：同一套 pageHTML + cqw 排版，等比缩小后观感与正文页一致 */
   const SAMPLE={title:"标题即结论",layout:"bullets",content:["要点|说明文字","要点|说明文字"],note:"收束句"};
@@ -2373,6 +2411,1300 @@ window.XH_POEMS = {
 };
 
 
+/* ===================== .pptx 生成器（纯 JS，零依赖，同步） ===================== */
+/* ============================================================================
+ * 星火PPT · XH_PPTX —— 纯前端 .pptx 生成器（零依赖 / 自己写 ZIP + OOXML）
+ * ----------------------------------------------------------------------------
+ * 解决什么：以前点「导出 .pptx」只下载一个 .py 脚本，用户还得自己装 Python 才能跑。
+ *           现在点一下就得到一个 PowerPoint 能直接打开的二进制 .pptx。
+ *
+ * 公开接口（**同步**，直接返回字节，不需要 await）：
+ *     window.XH_PPTX.build(deck, opts) -> Uint8Array
+ *
+ *   deck = {
+ *     title:    "整份 PPT 的主标题（封面兜底）",
+ *     subtitle: "副标题（封面兜底）",
+ *     poem:     "封面可选的题词（一句诗）",
+ *     poemFrom: "题词出处",
+ *     slides: [ { title, layout, content:[String], note,
+ *                 subtitle?, poem?, poemFrom?, eyebrow? } ]
+ *   }
+ *   opts = { bg, title, text, accent, muted, fontTitle, fontText }
+ *          颜色是不带 # 的 6 位十六进制；fontText 可选（正文字体，默认微软雅黑）
+ *
+ * 版式（与 static/index.html 的 LAYOUTS 词表一一对应，共 12 种）：
+ *   cover closing bullets two_col grid kpi timeline steps compare quote table zigzag
+ *
+ * 实现要点（为什么这样写）：
+ *   1) ZIP 用 store（不压缩）+ 自算 CRC32 —— 同步、零依赖、PowerPoint 接受；
+ *      不用 CompressionStream，因为它是异步的，会把 build() 变成 Promise。
+ *   2) 所有写进 XML 的文本都过 esc()（& < > " ' + 控制符 + 落单代理对），
+ *      用户文案里带 & < 引号也不会写出非法 XML。
+ *   3) 中文同时写 <a:latin>/<a:ea>/<a:cs> 三个 typeface，否则 PowerPoint 里中文会串字体。
+ *   4) 备注写进真正的 ppt/notesSlides/ 部件（不是页脚小字），页面底部同时保留收束句。
+ *   5) 空 deck / 单页 deck / 超长文本都走兜底分支，不抛异常。
+ *
+ * 边界：不写 static/index.html、不写 server.py。本文件可独立加载，也可整段内联。
+ * ========================================================================== */
+(function (root) {
+  "use strict";
+
+  /* ==========================================================================
+   * 1. 字节与 ZIP（自己实现，不依赖 JSZip）
+   * ======================================================================== */
+
+  function utf8(str) {
+    str = String(str == null ? "" : str);
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(str);
+    // 老环境兜底：手写 UTF-8 编码（含代理对）
+    var out = [], i, c, c2, cp;
+    for (i = 0; i < str.length; i++) {
+      c = str.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      else if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length &&
+               str.charCodeAt(i + 1) >= 0xdc00 && str.charCodeAt(i + 1) <= 0xdfff) {
+        c2 = str.charCodeAt(i + 1);
+        cp = 0x10000 + ((c - 0xd800) << 10) + (c2 - 0xdc00);
+        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+        i++;
+      } else if (c >= 0xd800 && c <= 0xdfff) {
+        out.push(0xef, 0xbf, 0xbd); // 落单代理对 → U+FFFD
+      } else {
+        out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      }
+    }
+    return new Uint8Array(out);
+  }
+
+  var CRC_TABLE = null;
+  function crcTable() {
+    if (CRC_TABLE) return CRC_TABLE;
+    var t = new Uint32Array(256), c, n, k;
+    for (n = 0; n < 256; n++) {
+      c = n;
+      for (k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    CRC_TABLE = t;
+    return t;
+  }
+  function crc32(bytes) {
+    var t = crcTable(), c = 0xffffffff, i = 0, n = bytes.length;
+    for (; i < n; i++) c = (c >>> 8) ^ t[(c ^ bytes[i]) & 0xff];
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  /* 固定的 DOS 时间戳，保证同一 deck 每次产出字节完全一致（便于 diff / 缓存） */
+  var DOS_TIME = (12 << 11) | (0 << 5) | 0;          // 12:00:00
+  var DOS_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1; // 2026-01-01
+
+  /**
+   * 打一个 ZIP（method=0 store）。files = [{name, data:Uint8Array}]
+   * 结构：本地文件头 + 数据 … + 中央目录 + EOCD
+   */
+  function zip(files) {
+    var chunks = [], central = [], offset = 0, i, f, nameBytes, data, crc, local, cd;
+
+    for (i = 0; i < files.length; i++) {
+      f = files[i];
+      nameBytes = utf8(f.name);
+      data = f.data;
+      crc = crc32(data);
+
+      local = new Uint8Array(30 + nameBytes.length);
+      var lv = new DataView(local.buffer);
+      lv.setUint32(0, 0x04034b50, true);   // local file header signature
+      lv.setUint16(4, 20, true);           // version needed
+      lv.setUint16(6, 0x0800, true);       // flags: UTF-8 文件名
+      lv.setUint16(8, 0, true);            // method 0 = store
+      lv.setUint16(10, DOS_TIME, true);
+      lv.setUint16(12, DOS_DATE, true);
+      lv.setUint32(14, crc, true);
+      lv.setUint32(18, data.length, true); // 压缩后大小
+      lv.setUint32(22, data.length, true); // 原始大小
+      lv.setUint16(26, nameBytes.length, true);
+      lv.setUint16(28, 0, true);           // extra length
+      local.set(nameBytes, 30);
+
+      chunks.push(local, data);
+
+      cd = new Uint8Array(46 + nameBytes.length);
+      var cv = new DataView(cd.buffer);
+      cv.setUint32(0, 0x02014b50, true);   // central directory header
+      cv.setUint16(4, 20, true);           // version made by
+      cv.setUint16(6, 20, true);           // version needed
+      cv.setUint16(8, 0x0800, true);
+      cv.setUint16(10, 0, true);
+      cv.setUint16(12, DOS_TIME, true);
+      cv.setUint16(14, DOS_DATE, true);
+      cv.setUint32(16, crc, true);
+      cv.setUint32(20, data.length, true);
+      cv.setUint32(24, data.length, true);
+      cv.setUint16(28, nameBytes.length, true);
+      cv.setUint16(30, 0, true);           // extra
+      cv.setUint16(32, 0, true);           // comment
+      cv.setUint16(34, 0, true);           // disk start
+      cv.setUint16(36, 0, true);           // internal attrs
+      cv.setUint32(38, 0, true);           // external attrs
+      cv.setUint32(42, offset, true);      // 相对偏移
+      cd.set(nameBytes, 46);
+      central.push(cd);
+
+      offset += local.length + data.length;
+    }
+
+    var cdSize = 0;
+    for (i = 0; i < central.length; i++) cdSize += central[i].length;
+
+    var eocd = new Uint8Array(22);
+    var ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(4, 0, true);
+    ev.setUint16(6, 0, true);
+    ev.setUint16(8, files.length, true);
+    ev.setUint16(10, files.length, true);
+    ev.setUint32(12, cdSize, true);
+    ev.setUint32(16, offset, true);
+    ev.setUint16(20, 0, true);
+
+    var total = offset + cdSize + 22;
+    var out = new Uint8Array(total), pos = 0;
+    for (i = 0; i < chunks.length; i++) { out.set(chunks[i], pos); pos += chunks[i].length; }
+    for (i = 0; i < central.length; i++) { out.set(central[i], pos); pos += central[i].length; }
+    out.set(eocd, pos);
+    return out;
+  }
+
+  /* ==========================================================================
+   * 2. XML / 颜色 / 排版小工具
+   * ======================================================================== */
+
+  var NS = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+         + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+         + ' xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"';
+  var DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
+  var R_NS = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"';
+
+  var RT = {
+    officeDocument: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+    coreProps: "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
+    appProps: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
+    slideMaster: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster",
+    slideLayout: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
+    slide: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
+    notesSlide: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide",
+    notesMaster: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
+    theme: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
+    presProps: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps",
+    viewProps: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps",
+    tableStyles: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles"
+  };
+
+  var CT = {
+    presentation: "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml",
+    slide: "application/vnd.openxmlformats-officedocument.presentationml.slide+xml",
+    slideMaster: "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml",
+    slideLayout: "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml",
+    notesSlide: "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml",
+    notesMaster: "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml",
+    theme: "application/vnd.openxmlformats-officedocument.theme+xml",
+    presProps: "application/vnd.openxmlformats-officedocument.presentationml.presProps+xml",
+    viewProps: "application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml",
+    tableStyles: "application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml",
+    core: "application/vnd.openxmlformats-package.core-properties+xml",
+    app: "application/vnd.openxmlformats-officedocument.extended-properties+xml"
+  };
+
+  /* XML 转义：控制符 / 落单代理对先剔掉，再转 5 个实体 */
+  function stripBadChars(s) {
+    s = String(s == null ? "" : s);
+    var out = "", i, c, c2;
+    for (i = 0; i < s.length; i++) {
+      c = s.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff) {                 // 高代理
+        c2 = s.charCodeAt(i + 1);
+        if (c2 >= 0xdc00 && c2 <= 0xdfff) { out += s.charAt(i) + s.charAt(i + 1); i++; }
+        continue;                                        // 落单 → 丢
+      }
+      if (c >= 0xdc00 && c <= 0xdfff) continue;          // 落单低代理 → 丢
+      if (c === 0x09 || c === 0x0a || c === 0x0d) { out += s.charAt(i); continue; }
+      if (c < 0x20 || c === 0x7f) continue;              // XML 1.0 非法控制符
+      out += s.charAt(i);
+    }
+    return out;
+  }
+  function esc(s) {
+    return stripBadChars(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  /* 960×540 设计网格 → EMU：12192000 / 960 = 12700，正好 1px = 1pt */
+  function emu(px) { return Math.round(px * 12700); }
+
+  function hex6(c, dflt) {
+    var s = String(c == null ? "" : c).replace(/^#/, "").trim();
+    if (/^[0-9a-fA-F]{6}$/.test(s)) return s.toUpperCase();
+    if (/^[0-9a-fA-F]{3}$/.test(s)) return (s[0] + s[0] + s[1] + s[1] + s[2] + s[2]).toUpperCase();
+    return dflt;
+  }
+  function rgbArr(h) { var n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function toHex(r, g, b) {
+    return [r, g, b].map(function (v) {
+      var x = Math.max(0, Math.min(255, Math.round(v))).toString(16);
+      return x.length < 2 ? "0" + x : x;
+    }).join("").toUpperCase();
+  }
+  function mix(a, b, t) {
+    var A = rgbArr(a), B = rgbArr(b);
+    return toHex(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t);
+  }
+
+  /* 粗略字宽估算：CJK ≈ 1em，其余 ≈ 0.55em */
+  function isWide(c) {
+    return (c >= 0x1100 && c <= 0x115f) || (c >= 0x2e80 && c <= 0xa4cf) ||
+           (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff) ||
+           (c >= 0xfe30 && c <= 0xfe6f) || (c >= 0xff00 && c <= 0xff60) ||
+           (c >= 0xffe0 && c <= 0xffe6) || (c >= 0x3000 && c <= 0x303f);
+  }
+  function textUnits(str) {
+    str = String(str == null ? "" : str);
+    var u = 0, i, c;
+    for (i = 0; i < str.length; i++) {
+      c = str.charCodeAt(i);
+      u += isWide(c) ? 1 : (c === 0x0a || c === 0x0d ? 0 : 0.55);
+    }
+    return u;
+  }
+  /* 按「装不下就降字号」估一个合适字号（sz 单位是 1/100 pt；boxW/boxH 是 px≈pt） */
+  function fitFont(text, base, boxW, boxH, lineFactor) {
+    lineFactor = lineFactor || 1.4;
+    var u = textUnits(text);
+    if (u <= 0 || boxW <= 0) return base;
+    boxH = boxH > 0 ? boxH : base / 100 * lineFactor;
+    var sz = base, perLine, lines, guard = 0;
+    while (sz > 800 && guard++ < 80) {
+      perLine = Math.max(1, Math.floor(boxW * 100 / sz));
+      lines = Math.ceil(u / perLine);
+      if (lines * (sz / 100) * lineFactor <= boxH) break;
+      sz -= 100;
+    }
+    return sz;
+  }
+
+  function pad2(n) { n = String(n); return n.length < 2 ? "0" + n : n; }
+
+  function palette(opts) {
+    var bg = hex6(opts.bg, "0D1226");
+    var title = hex6(opts.title, "FFD98A");
+    var text = hex6(opts.text, "ECEAF4");
+    var accent = hex6(opts.accent, "F2C66D");
+    var muted = hex6(opts.muted, "B7BDDA");
+    return {
+      bg: bg, title: title, text: text, accent: accent, muted: muted,
+      card: mix(bg, "FFFFFF", 0.07),
+      cardLine: mix(bg, "FFFFFF", 0.16),
+      line: mix(bg, muted, 0.40),
+      dim: mix(bg, muted, 0.62),
+      ft: opts.fontTitle ? String(opts.fontTitle) : "Noto Serif SC",
+      fb: opts.fontText ? String(opts.fontText) : "Microsoft YaHei"
+    };
+  }
+
+  /* ==========================================================================
+   * 3. OOXML 部件骨架
+   * ======================================================================== */
+
+  var GRP = '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+          + '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
+          + '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>';
+
+  function relsXml(items) {
+    var s = DECL + "<Relationships " + R_NS + ">";
+    for (var i = 0; i < items.length; i++) {
+      s += '<Relationship Id="' + items[i].id + '" Type="' + items[i].type + '" Target="'
+         + esc(items[i].target) + '"/>';
+    }
+    return s + "</Relationships>";
+  }
+
+  function themeXml(name, pal) {
+    return DECL
+      + '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="' + esc(name) + '">'
+      + '<a:themeElements>'
+      + '<a:clrScheme name="星火PPT">'
+      + '<a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>'
+      + '<a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>'
+      + '<a:dk2><a:srgbClr val="' + pal.bg + '"/></a:dk2>'
+      + '<a:lt2><a:srgbClr val="' + pal.text + '"/></a:lt2>'
+      + '<a:accent1><a:srgbClr val="' + pal.accent + '"/></a:accent1>'
+      + '<a:accent2><a:srgbClr val="' + pal.title + '"/></a:accent2>'
+      + '<a:accent3><a:srgbClr val="' + pal.muted + '"/></a:accent3>'
+      + '<a:accent4><a:srgbClr val="' + mix(pal.accent, pal.bg, 0.35) + '"/></a:accent4>'
+      + '<a:accent5><a:srgbClr val="' + mix(pal.muted, pal.bg, 0.30) + '"/></a:accent5>'
+      + '<a:accent6><a:srgbClr val="' + mix(pal.title, pal.bg, 0.30) + '"/></a:accent6>'
+      + '<a:hlink><a:srgbClr val="' + pal.accent + '"/></a:hlink>'
+      + '<a:folHlink><a:srgbClr val="' + pal.muted + '"/></a:folHlink>'
+      + '</a:clrScheme>'
+      + '<a:fontScheme name="星火PPT">'
+      + '<a:majorFont><a:latin typeface="' + esc(pal.ft) + '"/><a:ea typeface="' + esc(pal.ft) + '"/><a:cs typeface=""/></a:majorFont>'
+      + '<a:minorFont><a:latin typeface="' + esc(pal.fb) + '"/><a:ea typeface="' + esc(pal.fb) + '"/><a:cs typeface=""/></a:minorFont>'
+      + '</a:fontScheme>'
+      + '<a:fmtScheme name="星火PPT">'
+      + '<a:fillStyleLst>'
+      + '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+      + '<a:gradFill rotWithShape="1"><a:gsLst>'
+      + '<a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs>'
+      + '<a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs>'
+      + '<a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs>'
+      + '</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+      + '<a:gradFill rotWithShape="1"><a:gsLst>'
+      + '<a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs>'
+      + '<a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs>'
+      + '<a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs>'
+      + '</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+      + '</a:fillStyleLst>'
+      + '<a:lnStyleLst>'
+      + '<a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>'
+      + '<a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>'
+      + '<a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>'
+      + '</a:lnStyleLst>'
+      + '<a:effectStyleLst>'
+      + '<a:effectStyle><a:effectLst/></a:effectStyle>'
+      + '<a:effectStyle><a:effectLst/></a:effectStyle>'
+      + '<a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle>'
+      + '</a:effectStyleLst>'
+      + '<a:bgFillStyleLst>'
+      + '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+      + '<a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill>'
+      + '<a:gradFill rotWithShape="1"><a:gsLst>'
+      + '<a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs>'
+      + '<a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs>'
+      + '<a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs>'
+      + '</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+      + '</a:bgFillStyleLst>'
+      + '</a:fmtScheme>'
+      + '</a:themeElements>'
+      + '<a:objectDefaults/><a:extraClrSchemeLst/>'
+      + '</a:theme>';
+  }
+
+  function phSp(id, name, phXml, x, y, w, h) {
+    return '<p:sp><p:nvSpPr><p:cNvPr id="' + id + '" name="' + esc(name) + '"/>'
+      + '<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr>' + phXml + '</p:nvPr></p:nvSpPr>'
+      + '<p:spPr><a:xfrm><a:off x="' + x + '" y="' + y + '"/><a:ext cx="' + w + '" cy="' + h + '"/></a:xfrm>'
+      + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr>'
+      + '<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="zh-CN"/></a:p></p:txBody></p:sp>';
+  }
+
+  function sldMasterXml(pal) {
+    return DECL
+      + '<p:sldMaster ' + NS + ' preserve="1">'
+      + '<p:cSld>'
+      + '<p:bg><p:bgPr><a:solidFill><a:srgbClr val="' + pal.bg + '"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'
+      + '<p:spTree>' + GRP
+      + phSp(2, "Title Placeholder 1", '<p:ph type="title"/>', emu(64), emu(40), emu(832), emu(80))
+      + phSp(3, "Text Placeholder 2", '<p:ph type="body" idx="1"/>', emu(64), emu(140), emu(832), emu(330))
+      + phSp(4, "Date Placeholder 3", '<p:ph type="dt" sz="half" idx="2"/>', emu(64), emu(498), emu(200), emu(28))
+      + phSp(5, "Footer Placeholder 4", '<p:ph type="ftr" sz="quarter" idx="3"/>', emu(300), emu(498), emu(360), emu(28))
+      + phSp(6, "Slide Number Placeholder 5", '<p:ph type="sldNum" sz="quarter" idx="4"/>', emu(700), emu(498), emu(196), emu(28))
+      + '</p:spTree>'
+      + '</p:cSld>'
+      + '<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2"'
+      + ' accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>'
+      + '<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>'
+      + '<p:txStyles>'
+      + '<p:titleStyle><a:lvl1pPr algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">'
+      + '<a:defRPr sz="2600" b="1" kern="1200"><a:solidFill><a:srgbClr val="' + pal.title + '"/></a:solidFill>'
+      + '<a:latin typeface="' + esc(pal.ft) + '"/><a:ea typeface="' + esc(pal.ft) + '"/><a:cs typeface="' + esc(pal.ft) + '"/></a:defRPr>'
+      + '</a:lvl1pPr></p:titleStyle>'
+      + '<p:bodyStyle><a:lvl1pPr marL="0" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">'
+      + '<a:defRPr sz="1600" kern="1200"><a:solidFill><a:srgbClr val="' + pal.text + '"/></a:solidFill>'
+      + '<a:latin typeface="' + esc(pal.fb) + '"/><a:ea typeface="' + esc(pal.fb) + '"/><a:cs typeface="' + esc(pal.fb) + '"/></a:defRPr>'
+      + '</a:lvl1pPr></p:bodyStyle>'
+      + '<p:otherStyle><a:defPPr><a:defRPr lang="zh-CN"/></a:defPPr>'
+      + '<a:lvl1pPr marL="0" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">'
+      + '<a:defRPr sz="1600" kern="1200"><a:solidFill><a:srgbClr val="' + pal.text + '"/></a:solidFill>'
+      + '<a:latin typeface="' + esc(pal.fb) + '"/><a:ea typeface="' + esc(pal.fb) + '"/><a:cs typeface="' + esc(pal.fb) + '"/></a:defRPr>'
+      + '</a:lvl1pPr></p:otherStyle>'
+      + '</p:txStyles>'
+      + '</p:sldMaster>';
+  }
+
+  function sldLayoutXml(pal) {
+    return DECL
+      + '<p:sldLayout ' + NS + ' type="blank" preserve="1">'
+      + '<p:cSld name="空白">'
+      + '<p:bg><p:bgPr><a:solidFill><a:srgbClr val="' + pal.bg + '"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'
+      + '<p:spTree>' + GRP + '</p:spTree>'
+      + '</p:cSld>'
+      + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
+      + '</p:sldLayout>';
+  }
+
+  function notesMasterXml(pal) {
+    return DECL
+      + '<p:notesMaster ' + NS + ' preserve="1">'
+      + '<p:cSld>'
+      + '<p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'
+      + '<p:spTree>' + GRP
+      + phSp(2, "Notes Placeholder 1", '<p:ph type="body" idx="1"/>', 685800, 4400550, 5486400, 3600450)
+      + phSp(3, "Slide Image Placeholder 2", '<p:ph type="sldImg" idx="2"/>', 685800, 685800, 5486400, 3429000)
+      + '</p:spTree>'
+      + '</p:cSld>'
+      + '<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2"'
+      + ' accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>'
+      + '<p:notesStyle>'
+      + '<a:lvl1pPr marL="0" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">'
+      + '<a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill>'
+      + '<a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl1pPr>'
+      + '</p:notesStyle>'
+      + '</p:notesMaster>';
+  }
+
+  function presentationXml(n, slideRids, ridMaster, ridNotesMaster, deck, pal) {
+    var s = DECL + '<p:presentation ' + NS + ' saveSubsetFonts="1">';
+    s += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="' + ridMaster + '"/></p:sldMasterIdLst>';
+    s += '<p:notesMasterIdLst><p:notesMasterId r:id="' + ridNotesMaster + '"/></p:notesMasterIdLst>';
+    s += '<p:sldIdLst>';
+    for (var i = 0; i < n; i++) s += '<p:sldId id="' + (256 + i) + '" r:id="' + slideRids[i] + '"/>';
+    s += '</p:sldIdLst>';
+    s += '<p:sldSz cx="12192000" cy="6858000"/>';   // 16:9
+    s += '<p:notesSz cx="6858000" cy="9144000"/>';
+    s += '<p:defaultTextStyle>'
+      + '<a:defPPr><a:defRPr lang="zh-CN"/></a:defPPr>'
+      + '<a:lvl1pPr marL="0" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">'
+      + '<a:buNone/><a:defRPr sz="1600" kern="1200"><a:solidFill><a:srgbClr val="' + pal.text + '"/></a:solidFill>'
+      + '<a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl1pPr>'
+      + '<a:lvl2pPr marL="457200" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">'
+      + '<a:buNone/><a:defRPr sz="1400" kern="1200"><a:solidFill><a:srgbClr val="' + pal.muted + '"/></a:solidFill>'
+      + '<a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl2pPr>'
+      + '</p:defaultTextStyle>';
+    s += '</p:presentation>';
+    return s;
+  }
+
+  function presPropsXml() {
+    return DECL + '<p:presentationPr ' + NS + '/>';
+  }
+  function viewPropsXml() {
+    return DECL + '<p:viewPr ' + NS + '>'
+      + '<p:normalViewPr><p:restoredLeft sz="15620"/><p:restoredTop sz="94660"/></p:normalViewPr>'
+      + '<p:slideViewPr><p:cSldViewPr><p:cViewPr varScale="1"><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale>'
+      + '<p:origin x="0" y="0"/></p:cViewPr><p:guideLst/></p:cSldViewPr></p:slideViewPr>'
+      + '<p:notesTextViewPr><p:cViewPr><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale>'
+      + '<p:origin x="0" y="0"/></p:cViewPr></p:notesTextViewPr>'
+      + '<p:gridSpacing cx="76200" cy="76200"/></p:viewPr>';
+  }
+  function tableStylesXml() {
+    return DECL + '<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+      + ' def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>';
+  }
+  function coreXml(deck) {
+    var t = stripBadChars(deck && deck.title ? deck.title : "星火PPT");
+    return DECL
+      + '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"'
+      + ' xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"'
+      + ' xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+      + '<dc:title>' + esc(t) + '</dc:title>'
+      + '<dc:subject>' + esc(deck && deck.subtitle ? deck.subtitle : "") + '</dc:subject>'
+      + '<dc:creator>星火PPT</dc:creator>'
+      + '<cp:lastModifiedBy>星火PPT</cp:lastModifiedBy>'
+      + '<dcterms:created xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:created>'
+      + '<dcterms:modified xsi:type="dcterms:W3CDTF">2026-01-01T00:00:00Z</dcterms:modified>'
+      + '</cp:coreProperties>';
+  }
+  function appXml(nSlides, nNotes) {
+    return DECL
+      + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"'
+      + ' xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+      + '<Company>星火PPT</Company>'
+      + '<PresentationFormat>宽屏</PresentationFormat>'
+      + '<Slides>' + nSlides + '</Slides>'
+      + '<Notes>' + nNotes + '</Notes>'
+      + '<Application>星火PPT</Application>'
+      + '<AppVersion>16.0000</AppVersion>'
+      + '</Properties>';
+  }
+  function contentTypesXml(nSlides, notesSlideNames) {
+    var s = DECL + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/ppt/presentation.xml" ContentType="' + CT.presentation + '"/>'
+      + '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="' + CT.slideMaster + '"/>'
+      + '<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="' + CT.slideLayout + '"/>'
+      + '<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="' + CT.notesMaster + '"/>'
+      + '<Override PartName="/ppt/theme/theme1.xml" ContentType="' + CT.theme + '"/>'
+      + '<Override PartName="/ppt/theme/theme2.xml" ContentType="' + CT.theme + '"/>'
+      + '<Override PartName="/ppt/presProps.xml" ContentType="' + CT.presProps + '"/>'
+      + '<Override PartName="/ppt/viewProps.xml" ContentType="' + CT.viewProps + '"/>'
+      + '<Override PartName="/ppt/tableStyles.xml" ContentType="' + CT.tableStyles + '"/>'
+      + '<Override PartName="/docProps/core.xml" ContentType="' + CT.core + '"/>'
+      + '<Override PartName="/docProps/app.xml" ContentType="' + CT.app + '"/>';
+    for (var i = 1; i <= nSlides; i++) {
+      s += '<Override PartName="/ppt/slides/slide' + i + '.xml" ContentType="' + CT.slide + '"/>';
+    }
+    for (var j = 0; j < notesSlideNames.length; j++) {
+      s += '<Override PartName="/ppt/notesSlides/' + notesSlideNames[j] + '" ContentType="' + CT.notesSlide + '"/>';
+    }
+    return s + '</Types>';
+  }
+
+  /* ==========================================================================
+   * 4. 形状 / 段落 / 文本运行
+   * ======================================================================== */
+
+  var _id = 10;
+  function nid() { return ++_id; }
+  function resetId() { _id = 10; }
+
+  function fontsXml(font) {
+    font = font || "Microsoft YaHei";
+    return '<a:latin typeface="' + esc(font) + '"/><a:ea typeface="' + esc(font)
+         + '"/><a:cs typeface="' + esc(font) + '"/>';
+  }
+
+  function run(text, o) {
+    o = o || {};
+    var a = ' lang="zh-CN" altLang="en-US" sz="' + (o.sz || 1600) + '"';
+    if (o.b) a += ' b="1"';
+    if (o.i) a += ' i="1"';
+    if (o.spc) a += ' spc="' + o.spc + '"';
+    a += ' dirty="0"';
+    var fill = '<a:solidFill><a:srgbClr val="' + (o.color || "ECEAF4") + '"'
+      + (o.alpha != null ? '><a:alpha val="' + Math.round(o.alpha * 100000) + '"/></a:srgbClr>' : '/>')
+      + '</a:solidFill>';
+    return '<a:r><a:rPr' + a + '>' + fill + fontsXml(o.font || "Microsoft YaHei")
+      + '</a:rPr><a:t>' + esc(text) + '</a:t></a:r>';
+  }
+  function br() { return '<a:br><a:rPr lang="zh-CN" dirty="0"/></a:br>'; }
+
+  function defRPrXml(o) {
+    o = o || {};
+    var a = ' lang="zh-CN" sz="' + (o.sz || 1600) + '"' + (o.b ? ' b="1"' : '');
+    return '<a:defRPr' + a + '><a:solidFill><a:srgbClr val="' + (o.color || "ECEAF4")
+      + '"/></a:solidFill>' + fontsXml(o.font) + '</a:defRPr>';
+  }
+
+  function para(runs, o) {
+    o = o || {};
+    runs = runs || [];
+    var attrs = "";
+    if (o.algn) attrs += ' algn="' + o.algn + '"';
+    if (o.marL != null) attrs += ' marL="' + o.marL + '"';
+    if (o.indent != null) attrs += ' indent="' + o.indent + '"';
+    var inner = "";
+    if (o.lineSpcPct) inner += '<a:lnSpc><a:spcPct val="' + o.lineSpcPct + '"/></a:lnSpc>';
+    if (o.spcBefPts) inner += '<a:spcBef><a:spcPts val="' + Math.round(o.spcBefPts * 100) + '"/></a:spcBef>';
+    if (o.spcAftPts) inner += '<a:spcAft><a:spcPts val="' + Math.round(o.spcAftPts * 100) + '"/></a:spcAft>';
+    if (o.bulletChar) inner += '<a:buFont typeface="Arial"/><a:buChar char="' + esc(o.bulletChar) + '"/>';
+    else inner += '<a:buNone/>';
+    inner += defRPrXml({ sz: o.sz || 1600, color: o.color || "ECEAF4", b: o.b, font: o.font });
+    var body = runs.join("");
+    if (!body) body = '<a:endParaRPr lang="zh-CN" sz="' + (o.sz || 1200) + '" dirty="0"/>';
+    return '<a:p><a:pPr' + attrs + '>' + inner + '</a:pPr>' + body + '</a:p>';
+  }
+  function emptyPara(sz) {
+    return '<a:p><a:endParaRPr lang="zh-CN" sz="' + (sz || 1200) + '" dirty="0"/></a:p>';
+  }
+
+  function bodyPrXml(o) {
+    o = o || {};
+    var a = ' wrap="square"';
+    if (o.anchor) a += ' anchor="' + o.anchor + '"';
+    a += ' lIns="' + (o.lIns != null ? o.lIns : 0) + '" tIns="' + (o.tIns != null ? o.tIns : 0)
+       + '" rIns="' + (o.rIns != null ? o.rIns : 0) + '" bIns="' + (o.bIns != null ? o.bIns : 0) + '"';
+    return '<a:bodyPr' + a + '><a:normAutofit/></a:bodyPr>';
+  }
+
+  /**
+   * 一个形状。o = {name, x, y, w, h, geom, fill, alpha, rot, anchor, paras}
+   * 有 paras 才写 txBody（纯色块/圆点就不带文本框，避免污染 python-pptx 的文字统计）
+   */
+  function shape(o) {
+    var geom = o.geom || "rect";
+    var fill = o.fill
+      ? '<a:solidFill><a:srgbClr val="' + o.fill + '"'
+        + (o.alpha != null ? '><a:alpha val="' + Math.round(o.alpha * 100000) + '"/></a:srgbClr>' : '/>')
+        + '</a:solidFill>'
+      : '<a:noFill/>';
+    var xfrm = '<a:xfrm' + (o.rot ? ' rot="' + Math.round(o.rot * 60000) + '"' : '')
+      + '><a:off x="' + emu(o.x) + '" y="' + emu(o.y) + '"/>'
+      + '<a:ext cx="' + emu(Math.max(1, o.w)) + '" cy="' + emu(Math.max(1, o.h)) + '"/></a:xfrm>';
+    var s = '<p:sp><p:nvSpPr><p:cNvPr id="' + nid() + '" name="' + esc(o.name || "Shape") + '"/>'
+      + '<p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>'
+      + '<p:spPr>' + xfrm + '<a:prstGeom prst="' + geom + '"><a:avLst/></a:prstGeom>'
+      + fill + '<a:ln><a:noFill/></a:ln></p:spPr>';
+    if (o.paras) {
+      var ps = o.paras.length ? o.paras.join("") : emptyPara();
+      s += '<p:txBody>' + bodyPrXml(o) + '<a:lstStyle/>' + ps + '</p:txBody>';
+    }
+    return s + '</p:sp>';
+  }
+
+  function slideXml(pal, shapes) {
+    return DECL
+      + '<p:sld ' + NS + '>'
+      + '<p:cSld>'
+      + '<p:bg><p:bgPr><a:solidFill><a:srgbClr val="' + pal.bg + '"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'
+      + '<p:spTree>' + GRP + shapes.join("") + '</p:spTree>'
+      + '</p:cSld>'
+      + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
+      + '</p:sld>';
+  }
+
+  function notesSlideXml(note, pal) {
+    var lines = stripBadChars(note).split(/\r?\n/);
+    var paras = [];
+    for (var i = 0; i < lines.length; i++) {
+      paras.push(para(lines[i] ? [run(lines[i], { sz: 1200, color: "333333", font: pal.fb })] : [],
+        { algn: "l", lineSpcPct: 130000 }));
+    }
+    if (!paras.length) paras.push(emptyPara(1200));
+    return DECL
+      + '<p:notes ' + NS + '>'
+      + '<p:cSld><p:spTree>' + GRP
+      + '<p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes Placeholder 1"/>'
+      + '<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>'
+      + '<p:spPr><a:xfrm><a:off x="685800" y="4400550"/><a:ext cx="5486400" cy="3600450"/></a:xfrm>'
+      + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>'
+      + '<p:txBody>' + bodyPrXml({ anchor: "t" }) + '<a:lstStyle/>' + paras.join("") + '</p:txBody></p:sp>'
+      + '</p:spTree></p:cSld>'
+      + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
+      + '</p:notes>';
+  }
+
+  /* ==========================================================================
+   * 5. 版式渲染（12 种，每种排法都真的不同）
+   * ======================================================================== */
+
+  var W = 960, H = 540, M = 64, CW = 832;
+  var TITLE_Y = 44, RULE_Y = 106, BODY_Y = 140, BODY_B = 474;
+
+  function normLayout(l) {
+    l = String(l == null ? "bullets" : l).toLowerCase().replace(/[-\s]+/g, "_");
+    var alias = {
+      title: "bullets", list: "bullets", list_with_rule: "bullets",
+      card: "grid", cards: "grid", matrix: "grid",
+      twocol: "two_col", two_column: "two_col",
+      hero: "kpi", hero_number: "kpi", number: "kpi",
+      flow: "steps", process: "steps",
+      statement: "quote", big_quote: "quote", quote_page: "quote",
+      timeline_page: "timeline"
+    };
+    return alias[l] || l;
+  }
+  function splitPair(t) {
+    var a = String(t == null ? "" : t).split("|");
+    return [a[0].trim(), a.slice(1).join("|").trim()];
+  }
+  function contentOf(s) {
+    var out = [], arr = (s && s.content) || [], i;
+    if (!(arr instanceof Array)) return out;
+    for (i = 0; i < arr.length; i++) {
+      var t = String(arr[i] == null ? "" : arr[i]).trim();
+      if (t !== "") out.push(t);
+    }
+    return out;
+  }
+
+  function head(sb, pal, title, o) {
+    o = o || {};
+    var t = String(title == null ? "" : title).trim();
+    if (t) {
+      var sz = fitFont(t, o.sz || 2500, CW, 58, 1.2);
+      sb.push(shape({
+        name: "Title", x: M, y: TITLE_Y, w: CW, h: 58, anchor: "b",
+        paras: [para([run(t, { sz: sz, b: true, color: pal.title, font: pal.ft })],
+          { algn: "l", lineSpcPct: 100000, sz: sz, color: pal.title, font: pal.ft })]
+      }));
+    }
+    sb.push(shape({ name: "Rule", x: M, y: RULE_Y, w: CW, h: 2, fill: pal.accent, alpha: 0.9 }));
+  }
+
+  function footNote(sb, pal, txt) {
+    var t = String(txt == null ? "" : txt).trim();
+    if (!t) return;
+    sb.push(shape({ name: "NoteRule", x: M, y: 476, w: CW, h: 1, fill: pal.line }));
+    var sz = fitFont(t, 1150, CW, 34, 1.35);
+    sb.push(shape({
+      name: "Note", x: M, y: 482, w: CW, h: 40, anchor: "t",
+      paras: [para([run(t, { sz: sz, color: pal.muted, font: pal.fb })],
+        { algn: "l", lineSpcPct: 120000, sz: sz, color: pal.muted, font: pal.fb })]
+    }));
+  }
+
+  function layCover(sb, pal, deck, s) {
+    var title = String(s.title || deck.title || "").trim();
+    var sub = String(s.subtitle || deck.subtitle || "").trim();
+    var meta = contentOf(s).join("　·　");
+    var poem = String(s.poem || deck.poem || "").trim();
+    var poemFrom = String(s.poemFrom || deck.poemFrom || "").trim();
+
+    // 顶部小标 + 居中装饰条
+    sb.push(shape({
+      name: "Eyebrow", x: 80, y: 100, w: 800, h: 26, anchor: "t",
+      paras: [para([run("SPARK PPT", { sz: 1150, b: true, color: pal.accent, font: pal.fb, spc: 400 })],
+        { algn: "ctr", lineSpcPct: 100000, sz: 1150, color: pal.accent, font: pal.fb })]
+    }));
+    sb.push(shape({ name: "CoverBar", x: W / 2 - 32, y: 142, w: 64, h: 4, fill: pal.accent }));
+
+    if (title) {
+      var tsz = fitFont(title, 4200, 800, 128, 1.3);
+      sb.push(shape({
+        name: "CoverTitle", x: 80, y: 168, w: 800, h: 124, anchor: "ctr",
+        paras: [para([run(title, { sz: tsz, b: true, color: pal.title, font: pal.ft })],
+          { algn: "ctr", lineSpcPct: 115000, sz: tsz, color: pal.title, font: pal.ft })]
+      }));
+    }
+    if (sub) {
+      var ssz = fitFont(sub, 1800, 720, 46, 1.3);
+      sb.push(shape({
+        name: "CoverSub", x: 120, y: 306, w: 720, h: 46, anchor: "t",
+        paras: [para([run(sub, { sz: ssz, color: pal.muted, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 120000, sz: ssz, color: pal.muted, font: pal.fb })]
+      }));
+    }
+    if (meta) {
+      var msz = fitFont(meta, 1400, 760, 34, 1.3);
+      sb.push(shape({
+        name: "CoverMeta", x: 100, y: 358, w: 760, h: 36, anchor: "t",
+        paras: [para([run(meta, { sz: msz, color: pal.dim || pal.muted, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 120000, sz: msz, color: pal.dim || pal.muted, font: pal.fb })]
+      }));
+    }
+    if (poem) {
+      var psz = fitFont(poem, 1550, 700, 60, 1.5);
+      var pruns = [run(poem, { sz: psz, color: pal.accent, font: pal.ft })];
+      if (poemFrom) pruns.push(br(), run(poemFrom, { sz: Math.max(900, psz - 350), color: pal.dim || pal.muted, font: pal.fb }));
+      sb.push(shape({
+        name: "CoverPoem", x: 130, y: (meta ? 402 : 396), w: 700, h: 96, anchor: "t",
+        paras: [para(pruns, { algn: "ctr", lineSpcPct: 160000, sz: psz, color: pal.accent, font: pal.ft })]
+      }));
+    }
+  }
+
+  function layClosing(sb, pal, deck, s) {
+    var pts = contentOf(s);
+    var title = String(s.title || "").trim() || "谢谢";
+    sb.push(shape({ name: "EndBar", x: W / 2 - 32, y: 148, w: 64, h: 4, fill: pal.accent }));
+    var tsz = fitFont(title, 3800, 800, 108, 1.25);
+    sb.push(shape({
+      name: "EndTitle", x: 80, y: 176, w: 800, h: 108, anchor: "ctr",
+      paras: [para([run(title, { sz: tsz, b: true, color: pal.title, font: pal.ft })],
+        { algn: "ctr", lineSpcPct: 115000, sz: tsz, color: pal.title, font: pal.ft })]
+    }));
+    if (!pts.length) pts.push("星星之火，可以燎原");
+    var lsz = Math.min(1700, fitFont(pts.join(""), 1700, 700, 130, 1.6));
+    var paras = [], i;
+    for (i = 0; i < pts.length; i++) {
+      paras.push(para([run(pts[i], { sz: lsz, color: pal.text, font: pal.fb })],
+        { algn: "ctr", lineSpcPct: 150000, spcAftPts: 6, sz: lsz, color: pal.text, font: pal.fb }));
+    }
+    sb.push(shape({ name: "EndLines", x: 130, y: 296, w: 700, h: 140, anchor: "t", paras: paras }));
+
+    var note = String(s.note || "").trim();
+    var y = 440;
+    if (note) {
+      sb.push(shape({
+        name: "EndNote", x: 130, y: y, w: 700, h: 40, anchor: "t",
+        paras: [para([run(note, { sz: Math.min(1300, fitFont(note, 1300, 700, 40, 1.4)), color: pal.muted, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 120000, sz: 1300, color: pal.muted, font: pal.fb })]
+      }));
+      y += 44;
+    }
+    var poem = String(s.poem || deck.poem || "").trim();
+    if (poem && y < 500) {
+      sb.push(shape({
+        name: "EndPoem", x: 130, y: y, w: 700, h: 44, anchor: "t",
+        paras: [para([run(poem, { sz: 1250, color: pal.accent, font: pal.ft })],
+          { algn: "ctr", lineSpcPct: 120000, sz: 1250, color: pal.accent, font: pal.ft })]
+      }));
+    }
+  }
+
+  function layBullets(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var y0 = BODY_Y + 6, hh = BODY_B - y0;
+    var n = pts.length;
+    var base = n <= 3 ? 1700 : (n === 4 ? 1550 : 1450);
+    var longest = "";
+    for (var k = 0; k < n; k++) if (textUnits(pts[k]) > textUnits(longest)) longest = pts[k];
+    var sz = Math.min(base, fitFont(longest, base, CW - 40, hh / n, 1.45));
+    sz = Math.max(1000, sz);
+    var paras = [];
+    for (var i = 0; i < n; i++) {
+      var pr = splitPair(pts[i]), runs;
+      if (pr[1]) {
+        runs = [run(pr[0], { sz: sz, b: true, color: pal.accent, font: pal.fb }),
+                run("　" + pr[1], { sz: sz, color: pal.text, font: pal.fb })];
+      } else {
+        runs = [run(pr[0] || pts[i], { sz: sz, color: pal.text, font: pal.fb })];
+      }
+      paras.push(para(runs, {
+        algn: "l", bulletChar: "·", marL: 240000, indent: -240000,
+        lineSpcPct: 140000, spcAftPts: Math.max(6, Math.round(sz / 100 * 0.7)),
+        sz: sz, color: pal.text, font: pal.fb
+      }));
+    }
+    sb.push(shape({ name: "Bullets", x: M, y: y0, w: CW, h: hh, anchor: "t", paras: paras }));
+    footNote(sb, pal, s.note);
+  }
+
+  function layTwoCol(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var mid = Math.max(1, Math.ceil(pts.length / 2));
+    var cols = [pts.slice(0, mid), pts.slice(mid)];
+    var geo = [{ x: M, w: 372 }, { x: 504, w: 392 }];
+    var hh = BODY_B - BODY_Y;
+
+    sb.push(shape({ name: "ColGap", x: 472, y: BODY_Y, w: 2, h: hh, fill: pal.line }));
+
+    var slot = hh / Math.max(1, Math.max(cols[0].length, cols[1].length));
+    for (var c = 0; c < 2; c++) {
+      if (!cols[c].length) continue;
+      var cx = geo[c].x, cw = geo[c].w, paras = [], i;
+      for (i = 0; i < cols[c].length; i++) {
+        var pr = splitPair(cols[c][i]);
+        var t1 = Math.max(1050, Math.min(1700, fitFont(pr[0], 1700, cw, slot * 0.5, 1.3)));
+        if (pr[1]) {
+          paras.push(para([run(pr[0], { sz: t1, b: true, color: pal.accent, font: pal.fb })],
+            { algn: "l", lineSpcPct: 100000, spcBefPts: i ? 6 : 0, sz: t1, color: pal.accent, b: true, font: pal.fb }));
+          var t2 = Math.max(950, Math.min(1400, fitFont(pr[1], 1400, cw, slot * 0.7, 1.4)));
+          paras.push(para([run(pr[1], { sz: t2, color: pal.text, font: pal.fb })],
+            { algn: "l", lineSpcPct: 130000, spcAftPts: 4, sz: t2, color: pal.text, font: pal.fb }));
+        } else {
+          paras.push(para([run(pr[0] || cols[c][i], { sz: t1, color: pal.text, font: pal.fb })],
+            { algn: "l", bulletChar: "·", marL: 200000, indent: -200000, lineSpcPct: 130000, spcAftPts: 6,
+              sz: t1, color: pal.text, font: pal.fb }));
+        }
+      }
+      sb.push(shape({ name: "Col" + (c + 1), x: cx, y: BODY_Y, w: cw, h: hh, anchor: "t", paras: paras }));
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function layGrid(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 8);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var n = pts.length, cols = 2, gapX = 24, gapY = 14;
+    var rows = Math.ceil(n / cols);
+    var cellW = (CW - gapX) / 2;
+    var availH = BODY_B - BODY_Y;
+    var cellH = Math.min(152, (availH - gapY * (rows - 1)) / rows);
+    var totalH = rows * cellH + gapY * (rows - 1);
+    var y0 = BODY_Y + Math.max(0, (availH - totalH) / 2);
+
+    for (var i = 0; i < n; i++) {
+      var r = Math.floor(i / cols), c = i % cols;
+      var x = M + c * (cellW + gapX), y = y0 + r * (cellH + gapY);
+      var pr = splitPair(pts[i]);
+      sb.push(shape({ name: "GridCard" + (i + 1), x: x, y: y, w: cellW, h: cellH, geom: "roundRect", fill: pal.card }));
+      sb.push(shape({
+        name: "GridNum" + (i + 1), x: x + 18, y: y + 10, w: 60, h: 22, anchor: "t",
+        paras: [para([run(pad2(i + 1), { sz: 1150, b: true, color: pal.accent, font: pal.fb, spc: 100 })],
+          { algn: "l", lineSpcPct: 100000, sz: 1150, color: pal.accent, font: pal.fb })]
+      }));
+      var boxH = cellH - 46;
+      var tx = [], sz1 = Math.max(1000, Math.min(1500, fitFont(pr[0], 1500, cellW - 36, boxH, 1.35)));
+      tx.push(para([run(pr[0], { sz: sz1, b: !!pr[1], color: pr[1] ? pal.title : pal.text, font: pal.fb })],
+        { algn: "l", lineSpcPct: 120000, sz: sz1, color: pr[1] ? pal.title : pal.text, b: !!pr[1], font: pal.fb }));
+      if (pr[1]) {
+        var sz2 = Math.max(950, Math.min(1300, fitFont(pr[1], 1300, cellW - 36, boxH, 1.35)));
+        tx.push(para([run(pr[1], { sz: sz2, color: pal.text, font: pal.fb })],
+          { algn: "l", lineSpcPct: 128000, spcBefPts: 2, sz: sz2, color: pal.text, font: pal.fb }));
+      }
+      sb.push(shape({ name: "GridText" + (i + 1), x: x + 18, y: y + 36, w: cellW - 36, h: boxH + 6, anchor: "t", paras: tx }));
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function layKpi(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 4);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var n = pts.length, gap = 20, bh = 190, y = 186;
+    var bw = (CW - gap * (n - 1)) / n;
+    for (var i = 0; i < n; i++) {
+      var x = M + i * (bw + gap);
+      var pr = splitPair(pts[i]);
+      sb.push(shape({ name: "KpiCard" + (i + 1), x: x, y: y, w: bw, h: bh, geom: "roundRect", fill: pal.card }));
+      var nsz = Math.max(1800, Math.min(4400, fitFont(pr[0], 4400, bw - 32, 78, 1.15)));
+      sb.push(shape({
+        name: "KpiNum" + (i + 1), x: x + 14, y: y + 34, w: bw - 28, h: 78, anchor: "ctr",
+        paras: [para([run(pr[0], { sz: nsz, b: true, color: pal.accent, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 100000, sz: nsz, color: pal.accent, font: pal.fb })]
+      }));
+      sb.push(shape({ name: "KpiBar" + (i + 1), x: x + bw / 2 - 20, y: y + 116, w: 40, h: 3, fill: pal.accent, alpha: 0.85 }));
+      if (pr[1]) {
+        var lsz = Math.max(950, Math.min(1500, fitFont(pr[1], 1500, bw - 28, 56, 1.4)));
+        sb.push(shape({
+          name: "KpiLab" + (i + 1), x: x + 14, y: y + 128, w: bw - 28, h: 52, anchor: "t",
+          paras: [para([run(pr[1], { sz: lsz, color: pal.muted, font: pal.fb })],
+            { algn: "ctr", lineSpcPct: 125000, sz: lsz, color: pal.muted, font: pal.fb })]
+        }));
+      }
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function layTimeline(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 5);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var n = pts.length, x0 = 100, x1 = 860, span = x1 - x0, lineY = 248;
+    sb.push(shape({ name: "TlLine", x: x0, y: lineY, w: span, h: 2, fill: pal.line }));
+    var step = n > 1 ? span / (n - 1) : 0;
+    var dw = Math.max(120, Math.min(340, n > 1 ? step * 0.88 : 340));
+    for (var i = 0; i < n; i++) {
+      var cx = n > 1 ? x0 + i * step : (x0 + x1) / 2;
+      var pr = splitPair(pts[i]);
+      sb.push(shape({ name: "TlDot" + (i + 1), x: cx - 9, y: lineY - 8, w: 18, h: 18, geom: "ellipse", fill: pal.accent }));
+      var hsz = Math.max(1050, Math.min(1600, fitFont(pr[0], 1600, dw, 46, 1.3)));
+      sb.push(shape({
+        name: "TlStage" + (i + 1), x: cx - dw / 2, y: lineY + 24, w: dw, h: 46, anchor: "t",
+        paras: [para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 115000, sz: hsz, color: pal.title, font: pal.fb })]
+      }));
+      if (pr[1]) {
+        var dsz = Math.max(900, Math.min(1250, fitFont(pr[1], 1250, dw, 140, 1.4)));
+        sb.push(shape({
+          name: "TlDesc" + (i + 1), x: cx - dw / 2, y: lineY + 74, w: dw, h: 148, anchor: "t",
+          paras: [para([run(pr[1], { sz: dsz, color: pal.muted, font: pal.fb })],
+            { algn: "ctr", lineSpcPct: 135000, sz: dsz, color: pal.muted, font: pal.fb })]
+        }));
+      }
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function laySteps(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 5);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var n = pts.length, gap = 18;
+    var cw = (CW - gap * (n - 1)) / n;
+    for (var i = 0; i < n; i++) {
+      var x = M + i * (cw + gap);
+      var pr = splitPair(pts[i]);
+      sb.push(shape({ name: "StepBar" + (i + 1), x: x, y: BODY_Y, w: Math.min(52, cw), h: 4, fill: pal.accent }));
+      sb.push(shape({
+        name: "StepNum" + (i + 1), x: x, y: BODY_Y + 14, w: cw, h: 58, anchor: "t",
+        paras: [para([run(pad2(i + 1), { sz: Math.max(1800, Math.min(3000, cw * 12)), b: true, color: mix(pal.accent, pal.bg, 0.42), font: pal.fb, spc: 100 })],
+          { algn: "l", lineSpcPct: 100000, sz: 2400, color: mix(pal.accent, pal.bg, 0.42), font: pal.fb })]
+      }));
+      var nsz = Math.max(1100, Math.min(1750, fitFont(pr[0], 1750, cw, 54, 1.3)));
+      sb.push(shape({
+        name: "StepName" + (i + 1), x: x, y: BODY_Y + 82, w: cw, h: 54, anchor: "t",
+        paras: [para([run(pr[0], { sz: nsz, b: true, color: pal.text, font: pal.fb })],
+          { algn: "l", lineSpcPct: 118000, sz: nsz, color: pal.text, font: pal.fb })]
+      }));
+      if (pr[1]) {
+        var dsz = Math.max(900, Math.min(1300, fitFont(pr[1], 1300, cw, 180, 1.4)));
+        sb.push(shape({
+          name: "StepDesc" + (i + 1), x: x, y: BODY_Y + 140, w: cw, h: 186, anchor: "t",
+          paras: [para([run(pr[1], { sz: dsz, color: pal.muted, font: pal.fb })],
+            { algn: "l", lineSpcPct: 135000, sz: dsz, color: pal.muted, font: pal.fb })]
+        }));
+      }
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function layCompare(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 2);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var hh = BODY_B - BODY_Y;
+    sb.push(shape({ name: "CmpRule", x: 472, y: BODY_Y, w: 2, h: hh, fill: pal.line }));
+    var geo = [{ x: M, w: 376 }, { x: 504, w: 392 }];
+    for (var i = 0; i < pts.length && i < 2; i++) {
+      var pr = splitPair(pts[i]);
+      var items = String(pr[1] || "").split(/[；;]/).map(function (v) { return v.trim(); })
+        .filter(function (v) { return v !== ""; });
+      var cx = geo[i].x, cw = geo[i].w, paras = [];
+      var hsz = Math.max(1300, Math.min(1900, fitFont(pr[0], 1900, cw, 52, 1.3)));
+      paras.push(para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.ft })],
+        { algn: "l", lineSpcPct: 110000, spcAftPts: 10, sz: hsz, color: pal.title, font: pal.ft }));
+      for (var j = 0; j < items.length; j++) {
+        var dsz = Math.max(950, Math.min(1400, fitFont(items[j], 1400, cw - 28, 96, 1.4)));
+        paras.push(para([run(items[j], { sz: dsz, color: pal.text, font: pal.fb })],
+          { algn: "l", bulletChar: "·", marL: 200000, indent: -200000, lineSpcPct: 132000, spcAftPts: 6,
+            sz: dsz, color: pal.text, font: pal.fb }));
+      }
+      if (items.length === 0 && pr[1]) {
+        paras.push(para([run(pr[1], { sz: 1300, color: pal.text, font: pal.fb })],
+          { algn: "l", lineSpcPct: 132000, sz: 1300, color: pal.text, font: pal.fb }));
+      }
+      sb.push(shape({ name: "CmpCol" + (i + 1), x: cx, y: BODY_Y, w: cw, h: hh, anchor: "t", paras: paras }));
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function layQuote(sb, pal, deck, s) {
+    var pts = contentOf(s);
+    var q = pts[0] || String(s.title || "").trim();
+    var src = pts[1] || String(s.note || "").trim();
+    var eb = String(s.eyebrow || "一句话").trim();
+    sb.push(shape({
+      name: "QuoteEyebrow", x: 80, y: 116, w: 800, h: 26, anchor: "t",
+      paras: [para([run(eb, { sz: 1250, b: true, color: pal.accent, font: pal.fb, spc: 400 })],
+        { algn: "ctr", lineSpcPct: 100000, sz: 1250, color: pal.accent, font: pal.fb })]
+    }));
+    sb.push(shape({ name: "QuoteBar", x: W / 2 - 24, y: 158, w: 48, h: 3, fill: pal.accent }));
+    if (q) {
+      var qsz = fitFont(q, 3000, 740, 170, 1.35);
+      sb.push(shape({
+        name: "QuoteText", x: 110, y: 188, w: 740, h: 170, anchor: "ctr",
+        paras: [para([run(q, { sz: qsz, b: true, color: pal.title, font: pal.ft })],
+          { algn: "ctr", lineSpcPct: 135000, sz: qsz, color: pal.title, font: pal.ft })]
+      }));
+    }
+    if (src) {
+      var ssz = Math.max(1000, Math.min(1450, fitFont(src, 1450, 680, 46, 1.4)));
+      sb.push(shape({
+        name: "QuoteSrc", x: 140, y: 372, w: 680, h: 46, anchor: "t",
+        paras: [para([run("—— " + src, { sz: ssz, color: pal.muted, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 125000, sz: ssz, color: pal.muted, font: pal.fb })]
+      }));
+    }
+  }
+
+  function layTable(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 6);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var rows = pts.length;
+    var rowH = Math.min(58, (BODY_B - BODY_Y) / rows);
+    var geo = [{ x: M, w: 292 }, { x: 372, w: 242 }, { x: 622, w: 274 }];
+    for (var i = 0; i < rows; i++) {
+      var cells = String(pts[i]).split("|").map(function (v) { return v.trim(); });
+      if (cells.length > 3) cells = [cells[0], cells[1], cells.slice(2).join(" / ")];
+      var y = BODY_Y + i * rowH, isHead = (i === 0) && rows > 2;
+      for (var c = 0; c < 3; c++) {
+        var v = cells[c] != null ? cells[c] : "";
+        if (!v) continue;
+        var base = isHead ? 1550 : 1450;
+        var csz = Math.max(950, Math.min(base, fitFont(v, base, geo[c].w, rowH - 8, 1.25)));
+        sb.push(shape({
+          name: "Td" + (i + 1) + "_" + (c + 1), x: geo[c].x, y: y, w: geo[c].w, h: rowH - 4, anchor: "ctr",
+          paras: [para([run(v, { sz: csz, b: isHead, color: isHead ? pal.accent : pal.text, font: pal.fb })],
+            { algn: "l", lineSpcPct: 115000, sz: csz, color: isHead ? pal.accent : pal.text, b: isHead, font: pal.fb })]
+        }));
+      }
+      sb.push(shape({
+        name: "Tr" + (i + 1), x: M, y: y + rowH - 3, w: CW, h: isHead ? 2 : 1,
+        fill: isHead ? pal.accent : pal.line, alpha: isHead ? 0.75 : 1
+      }));
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  function layZigzag(sb, pal, deck, s) {
+    head(sb, pal, s.title);
+    var pts = contentOf(s).slice(0, 6);
+    if (!pts.length) { footNote(sb, pal, s.note); return; }
+    var n = pts.length;
+    var availH = BODY_B - BODY_Y;
+    var gapRow = n > 1 ? Math.min(14, Math.max(6, (availH - n * 46) / (n - 1))) : 0;
+    var rowH = Math.min(74, (availH - gapRow * (n - 1)) / n);
+    gapRow = n > 1 ? Math.max(4, (availH - rowH * n) / (n - 1)) : 0;
+
+    for (var i = 0; i < n; i++) {
+      var y = BODY_Y + i * (rowH + gapRow);
+      var pr = splitPair(pts[i]);
+      var leftFirst = (i % 2 === 0);
+      var hx = leftFirst ? M : 564, dx = leftFirst ? 400 : M;
+      var hw = leftFirst ? 300 : 300, dw = 468;
+
+      sb.push(shape({ name: "ZzMark" + (i + 1), x: hx, y: y + 6, w: 4, h: Math.max(12, rowH - 12), fill: pal.accent }));
+      var hsz = Math.max(1150, Math.min(1750, fitFont(pr[0], 1750, hw - 20, rowH, 1.25)));
+      sb.push(shape({
+        name: "ZzTitle" + (i + 1), x: hx + 18, y: y, w: hw - 18, h: rowH, anchor: "ctr",
+        paras: [para([run(pr[0], { sz: hsz, b: true, color: pal.title, font: pal.ft })],
+          { algn: "l", lineSpcPct: 115000, sz: hsz, color: pal.title, font: pal.ft })]
+      }));
+      if (pr[1]) {
+        var dsz = Math.max(950, Math.min(1400, fitFont(pr[1], 1400, dw, rowH, 1.35)));
+        sb.push(shape({
+          name: "ZzDesc" + (i + 1), x: dx, y: y, w: dw, h: rowH, anchor: "ctr",
+          paras: [para([run(pr[1], { sz: dsz, color: pal.text, font: pal.fb })],
+            { algn: "l", lineSpcPct: 130000, sz: dsz, color: pal.text, font: pal.fb })]
+        }));
+      }
+    }
+    footNote(sb, pal, s.note);
+  }
+
+  var RENDER = {
+    cover: layCover, closing: layClosing, bullets: layBullets, two_col: layTwoCol,
+    grid: layGrid, kpi: layKpi, timeline: layTimeline, steps: laySteps,
+    compare: layCompare, quote: layQuote, table: layTable, zigzag: layZigzag
+  };
+
+  /* ==========================================================================
+   * 6. build()
+   * ======================================================================== */
+
+  function build(deck, opts) {
+    deck = (deck && typeof deck === "object") ? deck : {};
+    opts = (opts && typeof opts === "object") ? opts : {};
+    var pal = palette(opts);
+
+    var src = (deck.slides instanceof Array) ? deck.slides : [];
+    var slides = [];
+    for (var i = 0; i < src.length; i++) {
+      var s = src[i];
+      if (s == null) { s = {}; }
+      else if (typeof s === "string") { s = { title: s, layout: "bullets", content: [] }; }
+      else if (typeof s !== "object") { s = {}; }
+      slides.push(s);
+    }
+    // 空 deck 兜底：给一张封面，保证产物一定能被 PowerPoint 打开
+    if (!slides.length) {
+      slides.push({
+        title: String(deck.title || "星火PPT"),
+        subtitle: String(deck.subtitle || ""),
+        layout: "cover", content: [], note: ""
+      });
+    }
+
+    var n = slides.length;
+    var slideXmls = [], noteXmls = [], notes = [];
+    for (var k = 0; k < n; k++) {
+      var sl = slides[k];
+      resetId();
+      var shapes = [];
+      var L = normLayout(sl.layout);
+      var fn = RENDER[L] || RENDER.bullets;   // 未知版式 → 退回 bullets，不崩
+      try {
+        fn(shapes, pal, deck, sl);
+      } catch (e) {
+        // 任何渲染异常都不让整份导出失败：退化成最简单的标题 + 内容
+        shapes.length = 0;
+        resetId();
+        head(shapes, pal, sl && sl.title);
+        var pts = contentOf(sl), paras = [], q;
+        for (q = 0; q < pts.length; q++) {
+          paras.push(para([run(pts[q], { sz: 1500, color: pal.text, font: pal.fb })],
+            { algn: "l", bulletChar: "·", marL: 240000, indent: -240000, lineSpcPct: 140000, spcAftPts: 8,
+              sz: 1500, color: pal.text, font: pal.fb }));
+        }
+        shapes.push(shape({ name: "Fallback", x: M, y: BODY_Y, w: CW, h: BODY_B - BODY_Y, anchor: "t", paras: paras }));
+        footNote(shapes, pal, sl && sl.note);
+      }
+      slideXmls.push(slideXml(pal, shapes));
+      var nt = String((sl && sl.note) || "").trim();
+      notes.push(nt);
+    }
+
+    /* ---- 关系 id 分配 ---- */
+    var next = 1, presRels = [];
+    var ridMaster = "rId" + (next++);
+    presRels.push({ id: ridMaster, type: RT.slideMaster, target: "slideMasters/slideMaster1.xml" });
+    var ridNotesMaster = "rId" + (next++);
+    presRels.push({ id: ridNotesMaster, type: RT.notesMaster, target: "notesMasters/notesMaster1.xml" });
+
+    var slideRids = [], i2;
+    for (i2 = 0; i2 < n; i2++) {
+      var rid = "rId" + (next++);
+      slideRids.push(rid);
+      presRels.push({ id: rid, type: RT.slide, target: "slides/slide" + (i2 + 1) + ".xml" });
+    }
+    var noteSlideNames = [];
+    for (i2 = 0; i2 < n; i2++) {
+      if (notes[i2]) noteSlideNames.push("notesSlide" + (i2 + 1) + ".xml");
+    }
+    presRels.push({ id: "rId" + (next++), type: RT.theme, target: "theme/theme1.xml" });
+    presRels.push({ id: "rId" + (next++), type: RT.presProps, target: "presProps.xml" });
+    presRels.push({ id: "rId" + (next++), type: RT.viewProps, target: "viewProps.xml" });
+    presRels.push({ id: "rId" + (next++), type: RT.tableStyles, target: "tableStyles.xml" });
+
+    /* ---- 组装所有部件 ---- */
+    var files = [];
+    function add(name, xml) { files.push({ name: name, data: utf8(xml) }); }
+
+    add("[Content_Types].xml", contentTypesXml(n, noteSlideNames));
+    add("_rels/.rels", relsXml([
+      { id: "rId1", type: RT.officeDocument, target: "ppt/presentation.xml" },
+      { id: "rId2", type: RT.coreProps, target: "docProps/core.xml" },
+      { id: "rId3", type: RT.appProps, target: "docProps/app.xml" }
+    ]));
+
+    add("docProps/core.xml", coreXml(deck));
+    add("docProps/app.xml", appXml(n, noteSlideNames.length));
+
+    add("ppt/presentation.xml", presentationXml(n, slideRids, ridMaster, ridNotesMaster, deck, pal));
+    add("ppt/_rels/presentation.xml.rels", relsXml(presRels));
+
+    add("ppt/slideMasters/slideMaster1.xml", sldMasterXml(pal));
+    add("ppt/slideMasters/_rels/slideMaster1.xml.rels", relsXml([
+      { id: "rId1", type: RT.slideLayout, target: "../slideLayouts/slideLayout1.xml" },
+      { id: "rId2", type: RT.theme, target: "../theme/theme1.xml" }
+    ]));
+    add("ppt/slideLayouts/slideLayout1.xml", sldLayoutXml(pal));
+    add("ppt/slideLayouts/_rels/slideLayout1.xml.rels", relsXml([
+      { id: "rId1", type: RT.slideMaster, target: "../slideMasters/slideMaster1.xml" }
+    ]));
+    add("ppt/notesMasters/notesMaster1.xml", notesMasterXml(pal));
+    add("ppt/notesMasters/_rels/notesMaster1.xml.rels", relsXml([
+      { id: "rId1", type: RT.theme, target: "../theme/theme2.xml" }
+    ]));
+    add("ppt/theme/theme1.xml", themeXml("星火PPT", pal));
+    add("ppt/theme/theme2.xml", themeXml("星火PPT 备注", pal));
+    add("ppt/presProps.xml", presPropsXml());
+    add("ppt/viewProps.xml", viewPropsXml());
+    add("ppt/tableStyles.xml", tableStylesXml());
+
+    for (i2 = 0; i2 < n; i2++) {
+      add("ppt/slides/slide" + (i2 + 1) + ".xml", slideXmls[i2]);
+      // 备注关系挂在「幻灯片」下，不是挂在 presentation.xml 下（这是 OOXML 的硬规矩）
+      var srels = [{ id: "rId1", type: RT.slideLayout, target: "../slideLayouts/slideLayout1.xml" }];
+      if (notes[i2]) {
+        srels.push({ id: "rId2", type: RT.notesSlide, target: "../notesSlides/notesSlide" + (i2 + 1) + ".xml" });
+      }
+      add("ppt/slides/_rels/slide" + (i2 + 1) + ".xml.rels", relsXml(srels));
+    }
+    for (i2 = 0; i2 < n; i2++) {
+      if (!notes[i2]) continue;
+      add("ppt/notesSlides/notesSlide" + (i2 + 1) + ".xml", notesSlideXml(notes[i2], pal));
+      add("ppt/notesSlides/_rels/notesSlide" + (i2 + 1) + ".xml.rels", relsXml([
+        { id: "rId1", type: RT.slide, target: "../slides/slide" + (i2 + 1) + ".xml" },
+        { id: "rId2", type: RT.notesMaster, target: "../notesMasters/notesMaster1.xml" }
+      ]));
+    }
+
+    return zip(files);
+  }
+
+  /* ==========================================================================
+   * 7. 导出
+   * ======================================================================== */
+
+  var api = {
+    version: "1.0.0",
+    build: build,                 // 同步，返回 Uint8Array
+    isAsync: false,
+    LAYOUTS: ["cover", "closing", "bullets", "two_col", "grid", "kpi", "timeline",
+              "steps", "compare", "quote", "table", "zigzag"],
+    _internals: { utf8: utf8, crc32: crc32, zip: zip, esc: esc, normLayout: normLayout }
+  };
+
+  root.XH_PPTX = api;
+  if (typeof module !== "undefined" && module && module.exports) module.exports = api;
+
+})(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
+
+
 /* ---- 状态检查 ---- */
 async function checkApi(){
   const hasKeyInBox=$("#apikey").value.trim();
@@ -2849,288 +4181,31 @@ function safeName(s){return String(s||"ppt").replace(/[\\/:*?"<>|]/g,"").slice(0
 /* ---- 导出 .pptx ---- */
 $("#btn-export-pptx").onclick=()=>{
   if(!state.doctor)return;
-  const spec={title:state.doctor.title,subtitle:state.doctor.subtitle,template:state.template,
-    slides:state.slides.map(s=>({title:s.title,layout:s.layout,content:s.content,note:s.note||""}))};
-  const pyScript=buildPptxScript(spec);
-  download("星火PPT-生成.py",pyScript,"text/x-python");
-  toast("已生成 .py 脚本，用本机 Python 运行即可导出 .pptx（pip install python-pptx）");
+  if(!(window.XH_PPTX && XH_PPTX.build)){ toast("导出模块未加载，请刷新页面重试"); return; }
+  try{
+    const deck={
+      title: state.doctor.title || "星火PPT",
+      subtitle: state.doctor.subtitle || "",
+      slides: state.slides.map(s=>({
+        title: s.title||"",
+        layout: normLayout(s.layout),
+        content: (s.content||[]).map(String),
+        note: s.note||""
+      }))
+    };
+    const opts = readThemeColors(state.template);
+    const bytes = XH_PPTX.build(deck, opts);      /* 同步返回 Uint8Array */
+    const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=safeName(state.doctor.title||"星火PPT")+".pptx";
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 200);
+    toast("已导出 .pptx（"+Math.round(bytes.length/1024)+" KB），PowerPoint 可直接打开");
+  }catch(e){
+    toast("导出失败："+((e&&e.message)||e));
+  }
 };
-function buildPptxScript(spec){
-  // 生成一段 python-pptx 脚本：12 种版式 + 每页收束句，尽量与网页端一致
-  return `# -*- coding: utf-8 -*-
-# 由「星火PPT」生成的 .pptx 导出脚本
-# 运行： pip install python-pptx   然后   python 本文件.py
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
-
-pres = Presentation()
-pres.slide_width = Inches(13.333)
-pres.slide_height = Inches(7.5)
-blank = pres.slide_layouts[6]
-
-TITLE = ${JSON.stringify(spec.title)}
-SUB = ${JSON.stringify(spec.subtitle)}
-TEMPLATE = ${JSON.stringify(spec.template)}
-
-PALETTES = {
- "t1": {"bg":"0D1226","title":"FFD98A","text":"ECEAF4","accent":"F2C66D","muted":"B7BDDA","line":"2A3350"},
- "t2": {"bg":"F7F8FC","title":"26335C","text":"4A5678","accent":"C2652E","muted":"6B7A9E","line":"DDE3F0"},
- "t3": {"bg":"0F3D34","title":"EAFAF1","text":"CFE8DB","accent":"A8E0C2","muted":"B5DAC9","line":"2C6B5C"},
- "t4": {"bg":"1A1A2E","title":"F2E6C4","text":"CFC8B0","accent":"D4AF55","muted":"B9AD8A","line":"3A3A5C"},
- "t5": {"bg":"2A1B3D","title":"F2E8FF","text":"D9C8F2","accent":"C8A8F0","muted":"CBB8E8","line":"4A3468"},
- "t6": {"bg":"0C2D48","title":"EAF6FF","text":"CFE6F5","accent":"9FD4FF","muted":"B8D8F2","line":"1E4A6B"},
-}
-THEME = PALETTES.get(TEMPLATE, PALETTES["t1"])
-
-def C(h):
-    return RGBColor.from_string(h)
-
-def bg(slide):
-    slide.background.fill.solid()
-    slide.background.fill.fore_color.rgb = C(THEME["bg"])
-
-def add(slide, text, left, top, width, height, size=16, color="text", bold=False, align=PP_ALIGN.LEFT):
-    box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
-    tf = box.text_frame
-    tf.word_wrap = True
-    tf.margin_left = 0; tf.margin_right = 0; tf.margin_top = 0; tf.margin_bottom = 0
-    p = tf.paragraphs[0]
-    p.text = str(text)
-    p.alignment = align
-    for r in p.runs:
-        r.font.size = Pt(size); r.font.bold = bold; r.font.color.rgb = C(THEME[color])
-    return box
-
-def paras(slide, items, left, top, width, height, size=15, color="text", gap=8, align=PP_ALIGN.LEFT, prefix=""):
-    box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
-    tf = box.text_frame
-    tf.word_wrap = True
-    tf.margin_left = 0; tf.margin_right = 0; tf.margin_top = 0; tf.margin_bottom = 0
-    for i, it in enumerate(items):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.text = (prefix + str(it)) if prefix else str(it)
-        p.alignment = align
-        p.space_after = Pt(gap)
-        for r in p.runs:
-            r.font.size = Pt(size); r.font.color.rgb = C(THEME[color])
-    return box
-
-def rule(slide, left, top, width, color="accent", height=0.022):
-    sh = slide.shapes.add_shape(1, Inches(left), Inches(top), Inches(width), Inches(height))
-    sh.fill.solid(); sh.fill.fore_color.rgb = C(THEME[color]); sh.line.fill.background()
-    return sh
-
-def dot(slide, left, top, size=0.16):
-    sh = slide.shapes.add_shape(9, Inches(left), Inches(top), Inches(size), Inches(size))
-    sh.fill.solid(); sh.fill.fore_color.rgb = C(THEME["accent"]); sh.line.fill.background()
-    return sh
-
-def head(slide, title):
-    add(slide, title, 0.95, 0.58, 11.45, 1.2, 30, "title", True)
-    rule(slide, 0.95, 1.80, 0.62)
-    return 2.05
-
-def note(slide, text):
-    if not text:
-        return
-    rule(slide, 0.95, 6.34, 11.45, "line", 0.01)
-    add(slide, text, 0.95, 6.46, 10.6, 0.55, 11, "muted")
-
-def cover(slide, s):
-    bg(slide)
-    add(slide, "SPARK PPT", 1.0, 2.30, 11.3, 0.45, 13, "accent", False, PP_ALIGN.CENTER)
-    add(slide, s.get("title") or TITLE, 0.9, 2.80, 11.5, 1.35, 42, "title", True, PP_ALIGN.CENTER)
-    rule(slide, 6.37, 4.22, 0.6)
-    add(slide, s.get("subtitle") or SUB or "", 0.9, 4.46, 11.5, 0.85, 16, "muted", False, PP_ALIGN.CENTER)
-    meta = "    ·    ".join([str(x) for x in (s.get("content") or []) if x])
-    if meta:
-        add(slide, meta, 0.9, 5.50, 11.5, 0.5, 11, "muted", False, PP_ALIGN.CENTER)
-
-def closing(slide, s):
-    bg(slide)
-    add(slide, s.get("title") or "谢谢", 0.9, 2.45, 11.5, 1.2, 38, "title", True, PP_ALIGN.CENTER)
-    items = [str(x) for x in (s.get("content") or []) if x]
-    if items:
-        paras(slide, items, 1.6, 3.90, 10.1, 1.8, 15, "muted", 9, PP_ALIGN.CENTER)
-    note(slide, s.get("note"))
-
-def page_bullets(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    paras(slide, items, 0.95, top + 0.10, 10.9, 4.0, 17, "text", 11, prefix="▸  ")
-    note(slide, s.get("note"))
-
-def page_two_col(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    mid = max(1, (len(items) + 1) // 2)
-    cols = [(items[:mid], 0.95), (items[mid:], 6.95)]
-    for col, x in cols:
-        rule(slide, x, top + 0.10, 5.35)
-        if not col:
-            continue
-        add(slide, col[0], x, top + 0.24, 5.2, 0.55, 16, "title", True)
-        if len(col) > 1:
-            paras(slide, col[1:], x, top + 0.92, 5.2, 3.2, 14, "text", 8)
-    note(slide, s.get("note"))
-
-def page_grid(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    n = max(len(items), 1)
-    cols = 2 if n <= 4 else 3
-    cw = 11.45 / cols
-    for i, it in enumerate(items):
-        r, cc = divmod(i, cols)
-        x = 0.95 + cc * cw
-        y = top + 0.15 + r * 1.60
-        rule(slide, x, y, cw - 0.55)
-        add(slide, "%02d" % (i + 1), x, y + 0.12, cw - 0.55, 0.28, 10, "accent")
-        add(slide, it, x, y + 0.44, cw - 0.55, 1.02, 13, "text")
-    note(slide, s.get("note"))
-
-def page_kpi(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    n = max(len(items), 1)
-    cw = 11.45 / n
-    for i, it in enumerate(items):
-        num, _, lab = it.partition("|")
-        x = 0.95 + i * cw
-        rule(slide, x, top + 0.95, cw - 0.55)
-        add(slide, num.strip(), x, top + 1.20, cw - 0.55, 1.10, 40, "title", True)
-        add(slide, lab.strip(), x, top + 2.42, cw - 0.55, 0.85, 12, "muted")
-    note(slide, s.get("note"))
-
-def page_timeline(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    n = max(len(items), 1)
-    cw = 11.45 / n
-    y = top + 0.72
-    rule(slide, 1.02, y, 10.55, "accent", 0.012)
-    for i, it in enumerate(items):
-        stage, _, desc = it.partition("|")
-        x = 0.95 + i * cw
-        dot(slide, x, y - 0.07)
-        add(slide, stage.strip(), x, y + 0.30, cw - 0.38, 0.52, 14, "title", True)
-        add(slide, desc.strip(), x, y + 0.88, cw - 0.38, 2.2, 12, "text")
-    note(slide, s.get("note"))
-
-def page_steps(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    n = max(len(items), 1)
-    cw = 11.45 / n
-    for i, it in enumerate(items):
-        name, _, desc = it.partition("|")
-        x = 0.95 + i * cw
-        if i > 0:
-            rule(slide, x - 0.14, top + 0.05, 0.012, "line", 3.15)
-        add(slide, "%02d" % (i + 1), x, top + 0.08, cw - 0.4, 0.28, 10, "accent")
-        add(slide, name.strip(), x, top + 0.44, cw - 0.4, 0.6, 15, "title", True)
-        add(slide, desc.strip(), x, top + 1.14, cw - 0.4, 2.2, 12, "text")
-    note(slide, s.get("note"))
-
-def page_compare(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    pairs = []
-    for it in items[:2]:
-        header, _, body = it.partition("|")
-        parts = [x.strip() for x in body.replace(";", "；").split("；") if x.strip()]
-        pairs.append((header.strip(), parts))
-    for (header, parts), x in zip(pairs, [0.95, 6.95]):
-        rule(slide, x, top + 0.10, 5.35)
-        add(slide, header, x, top + 0.24, 5.2, 0.55, 17, "title", True)
-        if parts:
-            paras(slide, parts, x, top + 0.95, 5.2, 3.2, 14, "text", 9, prefix="· ")
-    note(slide, s.get("note"))
-
-def page_quote(slide, s):
-    bg(slide)
-    items = [str(x) for x in (s.get("content") or []) if x]
-    quote = items[0] if items else (s.get("title") or "")
-    src = items[1] if len(items) > 1 else (s.get("note") or "")
-    add(slide, "A WORD", 1.0, 1.95, 11.3, 0.4, 11, "accent", False, PP_ALIGN.CENTER)
-    add(slide, quote, 1.35, 2.55, 10.6, 2.3, 27, "title", True, PP_ALIGN.CENTER)
-    if src:
-        add(slide, src, 1.0, 5.20, 11.3, 0.6, 12, "muted", False, PP_ALIGN.CENTER)
-
-def page_table(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    xs = [0.95, 3.85, 7.75]
-    ws = [2.75, 3.75, 4.55]
-    for ri, row in enumerate(items[:6]):
-        cells = row.split("|")
-        y = top + 0.20 + ri * 0.72
-        rule(slide, 0.95, y + 0.52, 11.35, "line", 0.008)
-        for ci, cell in enumerate(cells[:3]):
-            add(slide, cell.strip(), xs[ci], y, ws[ci], 0.45, 13,
-                "title" if ci == 0 else "text", ci == 0)
-    note(slide, s.get("note"))
-
-def page_zigzag(slide, s):
-    bg(slide)
-    top = head(slide, s.get("title") or "")
-    items = [str(x) for x in (s.get("content") or []) if x]
-    n = max(len(items), 1)
-    h = 3.95 / n
-    for i, it in enumerate(items):
-        header, _, desc = it.partition("|")
-        y = top + 0.12 + i * h
-        rule(slide, 0.95, y + h - 0.10, 11.35, "line", 0.008)
-        if i % 2 == 0:
-            add(slide, header.strip(), 0.95, y + 0.08, 3.9, 0.5, 15, "title", True)
-            add(slide, desc.strip(), 5.15, y + 0.10, 7.1, h - 0.28, 12, "text")
-        else:
-            add(slide, desc.strip(), 0.95, y + 0.10, 7.1, h - 0.28, 12, "text")
-            add(slide, header.strip(), 7.95, y + 0.08, 4.35, 0.5, 15, "title", True, PP_ALIGN.RIGHT)
-    note(slide, s.get("note"))
-
-RENDER = {
-    "cover": cover,
-    "closing": closing,
-    "bullets": page_bullets,
-    "two_col": page_two_col,
-    "grid": page_grid,
-    "kpi": page_kpi,
-    "timeline": page_timeline,
-    "steps": page_steps,
-    "compare": page_compare,
-    "quote": page_quote,
-    "table": page_table,
-    "zigzag": page_zigzag,
-}
-ALIAS = {"cards": "grid", "title": "bullets", "card": "grid", "matrix": "grid",
-         "twocol": "two_col", "hero": "kpi", "hero_number": "kpi",
-         "flow": "steps", "process": "steps", "statement": "quote", "big_quote": "quote"}
-
-SLIDES = ${JSON.stringify(spec.slides)}
-for s in SLIDES:
-    slide = pres.slides.add_slide(blank)
-    lay = str(s.get("layout") or "bullets").lower()
-    lay = ALIAS.get(lay, lay)
-    fn = RENDER.get(lay, page_bullets)
-    fn(slide, s)
-
-out = "星火PPT-导出.pptx"
-pres.save(out)
-print("已导出：" + out + "，共 " + str(len(SLIDES)) + " 页")
-`;
-}
-
 /* ---- 历史 ---- */
 function persist(){
   if(!state.doctor)return;
