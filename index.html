@@ -89,6 +89,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .tpl-pick{border:2px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:.18s;background:var(--panel2)}
 .tpl-pick.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-deep)}
+.tpl-pick .tv{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;container-type:size;background:var(--panel2)}
+.tpl-pick .tv .page{position:absolute;inset:0;padding:4.2cqw 5cqw 3.6cqw}
+.tpl-pick .tv .page .pt{margin-bottom:.6cqw}
+.tpl-pick .tv .page .phr{width:9cqw;height:1px;margin:1.2cqw 0}
+.tpl-pick .tv .page .ulist{margin-top:1.6cqw}
+.tpl-pick .tv .page .ulist li{margin:.7cqw 0;padding-left:3.2cqw}
+.tpl-pick .tv .page .ulist li::before{width:1.2cqw;height:1.2cqw;top:1.5cqw}
+.tpl-pick .tv .page .pnote{display:none}
+.tpl-pick .tv .page .poem-foot{display:none}
 .tpl-pick .sw{height:48px;display:block}
 .tpl-pick .nm{display:block;text-align:center;font-size:11px;color:var(--ink2);padding:5px 2px}
 .sw1{background:linear-gradient(160deg,#0D1226,#1a2545)}
@@ -208,6 +217,35 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .page .poem-bk{margin-top:16px;font-family:var(--serif);font-size:1.55cqw;color:var(--tsub);
   letter-spacing:.16em;opacity:.85;text-align:center;max-width:74%;line-height:1.7}
 .page .poem-src{display:block;font-size:.9cqw;letter-spacing:.1em;opacity:.6;margin-top:.5em}
+
+/* 页面入场动画：标题 → 分隔线 → 逐条要点 → 收束句 */
+@keyframes xhIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xhFade{from{opacity:0}to{opacity:1}}
+.page .pt{animation:xhIn .42s cubic-bezier(.2,.7,.3,1) both}
+.page .phr{animation:xhIn .42s cubic-bezier(.2,.7,.3,1) .07s both}
+.page .ulist li,.page .lcell,.page .tc-item,.page .zz-row,.page .step,.page .tl-item,.page .cmp-col,.page .tbl tr{
+  animation:xhIn .40s cubic-bezier(.2,.7,.3,1) both}
+.page .ulist li:nth-child(1),.page .lcell:nth-child(1),.page .tc-item:nth-child(1),.page .zz-row:nth-child(1),.page .step:nth-child(1),.page .tl-item:nth-child(1),.page .cmp-col:nth-child(1){animation-delay:.10s}
+.page .ulist li:nth-child(2),.page .lcell:nth-child(2),.page .tc-item:nth-child(2),.page .zz-row:nth-child(2),.page .step:nth-child(2),.page .tl-item:nth-child(2),.page .cmp-col:nth-child(2){animation-delay:.17s}
+.page .ulist li:nth-child(3),.page .lcell:nth-child(3),.page .tc-item:nth-child(3),.page .zz-row:nth-child(3),.page .step:nth-child(3),.page .tl-item:nth-child(3){animation-delay:.24s}
+.page .ulist li:nth-child(4),.page .lcell:nth-child(4),.page .tc-item:nth-child(4),.page .zz-row:nth-child(4),.page .step:nth-child(4),.page .tl-item:nth-child(4){animation-delay:.31s}
+.page .ulist li:nth-child(5),.page .lcell:nth-child(5),.page .zz-row:nth-child(5),.page .step:nth-child(5),.page .tl-item:nth-child(5){animation-delay:.38s}
+.page .ulist li:nth-child(6),.page .lcell:nth-child(6),.page .zz-row:nth-child(6){animation-delay:.45s}
+.page .pnote{animation:xhIn .42s cubic-bezier(.2,.7,.3,1) .34s both}
+.page .poem-foot{animation:xhFade .6s ease .5s both}
+.page .poem-cov,.page .poem-bk{animation:xhIn .5s cubic-bezier(.2,.7,.3,1) .25s both}
+.page.cover .ck,.page.cover .ct,.page.cover .cb,.page.cover .cs{animation:xhIn .5s cubic-bezier(.2,.7,.3,1) both}
+.page.cover .ct{animation-delay:.08s}
+.page.cover .cb{animation-delay:.16s}
+.page.cover .cs{animation-delay:.22s}
+.page .kpi-cell{animation:xhIn .45s cubic-bezier(.2,.7,.3,1) both}
+.page .kpi-cell:nth-child(2){animation-delay:.12s}
+.page .kpi-cell:nth-child(3){animation-delay:.24s}
+.page .kpi-cell:nth-child(4){animation-delay:.36s}
+/* 模板缩略图、导出页不需要动画 */
+.tpl-pick .tv .page *{animation:none !important}
+@media (prefers-reduced-motion: reduce){ .page *{animation:none !important} }
+
 .page .pno{position:absolute;right:22px;bottom:14px;font-size:calc(1.447cqw * var(--k,1));color:var(--tsub);opacity:.45;letter-spacing:1px;font-family:var(--mono)}
 .page .pt{font-family:var(--serif);font-size:var(--ts-title);color:var(--th);font-weight:700;line-height:1.34;margin-bottom:8px;max-width:88%}
 .page .phr{width:40px;height:2px;background:linear-gradient(90deg,var(--tk),transparent);margin:10px 0 0;flex:none}
@@ -892,8 +930,13 @@ function renderSkills(){
     state.skill=el.dataset.k;renderSkills();});
 }
 function renderTpls(){
-  $("#tplgrid").innerHTML=TPL.map(t=>`<div class="tpl-pick ${state.template===t.id?"on":""}" data-id="${t.id}">
-    <span class="sw ${t.sw}"></span><span class="nm">${t.name}</span></div>`).join("");
+  /* 用真实渲染做迷你预览：同一套 pageHTML + cqw 排版，等比缩小后观感与正文页一致 */
+  const SAMPLE={title:"标题即结论",layout:"bullets",content:["要点|说明文字","要点|说明文字"],note:"收束句"};
+  $("#tplgrid").innerHTML=TPL.map(t=>{
+    const mini=`<div class="tv"><div class="page ${t.cls} bullets">${pageHTML(SAMPLE,0,3)}</div></div>`;
+    return `<div class="tpl-pick ${state.template===t.id?"on":""}" data-id="${t.id}" title="${t.name}">
+      ${mini}<span class="nm">${t.name}</span></div>`;
+  }).join("");
   document.querySelectorAll(".tpl-pick").forEach(el=>el.onclick=()=>{
     state.template=el.dataset.id;renderTpls();if(state.doctor)renderSlide();});
 }
@@ -976,7 +1019,7 @@ const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
    反例：「第二部：星火专注Pro」「背景」「概述」「核心功能」。
    正例：「第二部把专注变成一条看得见的链」「三个动作撑起一次完整专注」。
    把所有页标题连起来读，应当能讲完整个故事。
-2. 【一页一件事】1 个主题 + 2~4 个支撑点；单页 content 不超过 6 条。
+2. 【一页一件事，但要有料】1 个主题 + 3~5 个支撑点；单页 content 最多 6 条。每条要**具体**：写清做法、步骤、例子或数字，不要只写口号。
 3. 【底部收束句】每页必须给 note：一句「所以呢」，20~40 字，讲这页的结论 / 影响 / 下一步。封面与封底可省略。
 4. 【版式现场定制】按这份内容自己的结构来设计版式组合，不要套固定套路：
    - 相邻两页不得使用相同 layout；
@@ -988,7 +1031,7 @@ const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
 6. 【语体】具体、克制、以事实说话，不要长句堆砌。
    禁用以下 AI 腔词与句式：闭环、赋能、解构、抓手、主战场、护城河、全方位、助力、深度赋能、看似……实则……、不是……而是……、不仅……更是……。
 7. 【证据边界】不编造原文没有的数据、案例、机构名、时间。原文没有数字就绝不写数字。
-8. 【文字工整】每条 12~30 字，短句优先，不要把小作文塞进一条。
+8. 【文字工整】每条 15~45 字，短句优先；一条讲一个意思，不要把小作文塞进一条，也不要只丢三个字。
 
 【槽位语法·硬性】除 cover / closing / bullets / grid 外，每一条 content 都必须写成「小标题|说明」的形式（英文竖线 | 分隔）。缺少分隔符会导致该页无法排版；宁可换一种版式，也不要漏写 |。
 
