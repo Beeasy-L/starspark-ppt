@@ -1396,6 +1396,16 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.6 — 补上图形、按规范重排、导出不再出界</div>
+        <div class="logdate">2026-10-25</div>
+        <ul class="loglist">
+          <li><b>模板终于有「图样」了</b>：12 套模板各配一个视觉母题——星轨、月相、山峦、印章、雾带、波浪、图纸网格、斜切色带、纸感、数据条、圆环、方格；另加角落角标、标题标记、页脚装饰与一套图标库。装饰一律只落在空白处，<b>不压文字</b>。</li>
+          <li><b>字号层级按专业规范重建</b>：页标题 = 正文 2.11 倍、模块小标题 1.5 倍、注释 0.69 倍、大数字 3.5 倍。<b>原先模块小标题和正文几乎同号，等于没有层级</b>。</li>
+          <li><b>修了个看不见的毛病</b>：衬线字体栈三个名字全是 macOS 字体，<b>在 Windows 上一直落到系统默认字体</b>；现已改为思源宋体/宋体链。</li>
+          <li><b>两套模板换了气质</b>：「紫雾星海」的紫蓝渐变被专业规范明文禁止，改成「<b>琥珀长夜</b>」；「沧海深蓝」改成浅色的「<b>沧海晨光</b>」，缓解深底过多。</li>
+          <li><b>导出 .pptx 不再出界</b>：12 页逐形状断言，<b>越界 0 个、图文重叠 0 处</b>；并支持把 AI 配图一起嵌进 pptx。</li>
+          <li><b>配图（AI 生图）</b>：填任一家 OpenAI 兼容的生图接口（智谱 / 通义万相 / 硅基流动 / OpenAI），勾选后自动为封面配图，内容页也能单独配。</li>
+        </ul>
         <div class="logver">V1.5 — 导出真的是 .pptx 了</div>
         <div class="logdate">2026-10-25</div>
         <ul class="loglist">
@@ -5276,10 +5286,29 @@ function renderThumbs(){
 const icons={cover:"⬟",closing:"✦",bullets:"☰",two_col:"▥",grid:"❐",kpi:"№",
   timeline:"⊢",steps:"⇢",compare:"⇹",quote:"❝",table:"▤",zigzag:"≋",undefined:"•"};
 function ltype(l){return normLayout(l);}
+/* 装饰母题类：优先读模板自己的 --deco-motif，再退回 XH_DECO 映射表 */
+function decoClsOf(tplId){
+  try{
+    if(typeof XH_DECO==="undefined" || !XH_DECO || !XH_DECO.decoClass) return "";
+    const t=(typeof TPL!=="undefined"?TPL.find(x=>x.id===tplId):null)||null;
+    let motif=null;
+    if(t){
+      const probe=document.createElement("div");
+      probe.className="page "+t.cls;
+      probe.style.cssText="position:fixed;left:-99999px;top:0;width:10px;height:10px";
+      document.body.appendChild(probe);
+      motif=(getComputedStyle(probe).getPropertyValue("--deco-motif")||"").trim().replace(/^["']|["']$/g,"");
+      probe.remove();
+    }
+    if(motif && motif!=="none") return "motif-"+motif;
+    return XH_DECO.decoClass(tplId) || "";
+  }catch(e){ return ""; }
+}
+
 function renderSlide(){
   const s=state.slides[state.current];
   const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
-  $("#stage").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)}${(s.img||(normLayout(s.layout)==="cover"&&state.coverImg))?" has-img":""}">
+  $("#stage").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)} ${decoClsOf(state.template)}${(s.img||(normLayout(s.layout)==="cover"&&state.coverImg))?" has-img":""}">
     ${pageHTML(s,state.current,state.slides.length)}<span class="pno">${state.current+1} / ${state.slides.length}</span></div>`;
   $("#stage").onclick=()=>openSheet(state.current);
   scheduleFit();
@@ -5519,7 +5548,7 @@ function openShow(){
 function showSlide(i){state.current=i;renderSlideInOverlay();}
 function renderSlideInOverlay(){
   const s=state.slides[state.current];const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
-  $("#o-frame").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)}">${pageHTML(s,state.current,state.slides.length)}</div>`;
+  $("#o-frame").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)} ${decoClsOf(state.template)}">${pageHTML(s,state.current,state.slides.length)}</div>`;
   $("#o-cnt").textContent=(state.current+1)+" / "+state.slides.length;
   setTimeout(()=>{
     const pg=document.querySelector("#o-frame .page");
@@ -5545,7 +5574,7 @@ document.addEventListener("keydown",e=>{
 $("#btn-export-html").onclick=()=>{
   if(!state.doctor)return;
   const css=buildExportCSS();
-  const body=state.slides.map((s,i)=>`<div class="page ${TPL.find(t=>t.id===state.template).cls} ${normLayout(s.layout)}" id="s${i}">${pageHTML(s,i,state.slides.length)}</div>`).join("\n");
+  const body=state.slides.map((s,i)=>`<div class="page ${TPL.find(t=>t.id===state.template).cls} ${normLayout(s.layout)} ${decoClsOf(state.template)}" id="s${i}">${pageHTML(s,i,state.slides.length)}</div>`).join("\n");
   const html=`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
 <title>${esc(state.doctor.title||"星火PPT")}</title>
 <style>${css}</style></head>
