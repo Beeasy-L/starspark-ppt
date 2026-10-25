@@ -13,7 +13,7 @@
   --gold:#F2C66D; --gold-hi:#FFD98A; --gold-deep:#C9943F;
   --blue:#82A6FF; --blue-soft:#5E7BC4;
   --ember:#E8915B; --ember-soft:#C46A40;
-  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --serif:"Source Han Serif SC","思源宋体 CN","思源宋体","Noto Serif SC","Songti SC",SimSun,serif;
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
   --mono:ui-monospace,"SFMono-Regular",Consolas,"Courier New",monospace;
 }
@@ -375,6 +375,44 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .page.has-img>*:not(.pg-img):not(.pno){position:relative;z-index:1}
 .page.cover.has-img .ct{text-shadow:0 4px 24px rgba(0,0,0,.55)}
 .page.content-img{padding-right:var(--gutter)}
+
+
+/* SPEC-TYPE-HIERARCHY
+   来源：星火PPT/设计规范.md（design-miner 从 12 套设计系统抠出）
+   正文 18px / 页标题 2.11x / 模块小标题 1.5x / 副标题 1.17x / 注释 0.69x / 图注 0.83x / 大数字 3.5x / 封面 4.0x
+   其余层级一律由正文按倍率推导，保证任何舞台尺寸下层级关系不变 */
+.page{
+  --ts-body:  clamp(15px, 1.875cqw, 18px);
+  --ts-title: calc(var(--ts-body) * 2.11);
+  --ts-heading: calc(var(--ts-body) * 1.5);
+  --ts-sub:   calc(var(--ts-body) * 1.17);
+  --ts-note:  calc(var(--ts-body) * 0.69);
+  --ts-cap:   calc(var(--ts-body) * 0.83);
+  --ts-hero:  calc(var(--ts-body) * 3.5);
+  --ts-cover: calc(var(--ts-body) * 4.0);
+  --gutter:   clamp(28px, 5cqw, 58px);
+}
+/* 正文行高按规范上界 1.45 */
+.page .ulist li{font-size:var(--ts-body);line-height:1.5}
+.page .tc-item span,.page .lcell p,.page .kpi-lab,.page .tl-d,.page .step-d,
+.page .zz-d,.page .tbl td,.page .cmp-col .cmp-item,.page .pnote{
+  font-size:var(--ts-body);line-height:1.5}
+.page .pnote{font-size:var(--ts-note)}
+/* 模块小标题：升到 1.5x —— 之前是 0.93~1.06x，等于没有层级 */
+.page .tc-col h4,.page .zz-h,.page .step-t,.page .tl-h,.page .cmp-col h4,.page .tc-item b{
+  font-size:var(--ts-heading);font-weight:650;line-height:1.35}
+/* 页标题统一 2.11x，且左轴一致（不再 max-width:88% 自由宽度） */
+.page .pt{font-size:var(--ts-title);line-height:1.3;max-width:none}
+/* 大数字 / 封面 / 封底 / 金句 */
+.page .kpi-num{font-size:var(--ts-hero);line-height:1.05}
+.page.cover .ct{font-size:var(--ts-cover);line-height:1.15}
+.page.closing .ct{font-size:calc(var(--ts-body) * 3.0);line-height:1.25}
+.page.quote .qt{font-size:calc(var(--ts-body) * 2.3);line-height:1.5}
+.page .poem-cov,.page .poem-bk{font-size:var(--ts-sub)}
+.page .poem-foot{font-size:var(--ts-note)}
+.page .pno{font-size:var(--ts-note)}
+.page.cover .cs{font-size:var(--ts-sub)}
+.page.cover .ck,.page .cmp-col .cmp-item,.page .tbl td{font-size:var(--ts-cap)}
 
 /* 放映 */
 .overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
@@ -1111,7 +1149,7 @@ const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
    - 页数 ≥ 5 时，全篇至少使用 4 种不同 layout；
    - 只有内容确实是并列项时才用 grid；只有确实有数字时才用 kpi；
    - 不要用「每页都三张等宽卡片」这种形式。
-5. 【少用均分】能用两栏对照、时间轴、流程、交错排布的，就不要全用并列网格。
+5. 【均分要克制】并列网格（grid）只在内容确实是并列项时才用；两栏对照、时间轴、流程、交错排布能表达清楚的，优先用它们。连续两页不要都用均分版式——翻页时读者要能感到节奏在变。
 6. 【语体】具体、克制、以事实说话，不要长句堆砌。
    禁用以下 AI 腔词与句式：闭环、赋能、解构、抓手、主战场、护城河、全方位、助力、深度赋能、看似……实则……、不是……而是……、不仅……更是……。
 7. 【证据边界】不编造原文没有的数据、案例、机构名、时间。原文没有数字就绝不写数字。
