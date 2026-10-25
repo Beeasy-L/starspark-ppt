@@ -4348,13 +4348,20 @@ $("#btn-export-pptx").onclick=()=>{
 /* ---- 历史 ---- */
 function persist(){
   if(!state.doctor)return;
-  const recs=JSON.parse(localStorage.getItem(KEY)||"[]");
-  const entry={title:state.doctor.title,subtitle:state.doctor.subtitle,template:state.template,
-    slides:state.slides,ts:Date.now()};
-  const i=recs.findIndex(r=>r.ts===openTs);
-  if(i>=0)recs[i]=entry;else recs.unshift(entry);
-  if(recs.length>30)recs.length=30;
-  localStorage.setItem(KEY,JSON.stringify(recs));
+  try{
+    const recs=JSON.parse(localStorage.getItem(KEY)||"[]");
+    /* 配图是 base64 大字符串，存进历史会撑爆 localStorage —— 落库前剥离，只留文字 */
+    const lightSlides=state.slides.map(s=>{
+      const o={title:s.title,layout:s.layout,content:s.content,note:s.note||""};
+      return o;
+    });
+    const entry={title:state.doctor.title,subtitle:state.doctor.subtitle,template:state.template,
+      slides:lightSlides,ts:Date.now()};
+    const i=recs.findIndex(r=>r.ts===openTs);
+    if(i>=0)recs[i]=entry;else recs.unshift(entry);
+    if(recs.length>30)recs.length=30;
+    localStorage.setItem(KEY,JSON.stringify(recs));
+  }catch(e){ /* 配额满等：不影响主流程 */ }
   renderHist();
 }
 let openTs=0;
