@@ -367,6 +367,30 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .imgcfg{display:none;gap:8px;flex-direction:column;margin-bottom:8px}
 .imgcfg.on{display:flex}
 .imgcfg .ipt{margin:0}
+/* 图表 */
+.chart{margin-top:auto;margin-bottom:auto;width:100%}
+.chart-bar{display:flex;flex-direction:column;gap:2.4cqw}
+.cb-row{display:grid;grid-template-columns:minmax(0,26%) 1fr auto;align-items:center;gap:2cqw}
+.cb-lab{font-size:var(--ts-body);color:var(--th);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-track{height:1.9cqw;background:var(--tborder);border-radius:99px;overflow:hidden}
+.cb-fill{height:100%;background:var(--tk);border-radius:99px}
+.cb-val{font-family:var(--mono,monospace);font-size:var(--ts-body);color:var(--tk);font-weight:700;min-width:4em;text-align:right}
+.chart-prog{display:flex;align-items:flex-end;justify-content:space-around;gap:3cqw;height:70%}
+.cp-col{display:flex;flex-direction:column;align-items:center;height:100%;flex:1;min-width:0}
+.cp-val{font-family:var(--mono,monospace);font-size:var(--ts-cap);color:var(--tk);font-weight:700;margin-bottom:1cqw}
+.cp-track{flex:1;width:60%;max-width:7cqw;background:var(--tborder);border-radius:99px;display:flex;align-items:flex-end;overflow:hidden}
+.cp-fill{width:100%;background:var(--tk);border-radius:99px}
+.cp-lab{font-size:var(--ts-cap);color:var(--tp);margin-top:1.4cqw;text-align:center;line-height:1.4}
+.chart-ring{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;min-height:0;gap:1.4cqw}
+.ring-svg{height:100%;max-height:100%;width:auto;max-width:40%;transform:rotate(-90deg)}
+.ring-bg{fill:none;stroke:var(--tborder);stroke-width:11}
+.ring-fg{fill:none;stroke:var(--tk);stroke-width:11;stroke-linecap:round}
+.ring-mid{position:absolute;top:calc(50% - 1.2cqw);left:50%;transform:translate(-50%,-50%);text-align:center}
+.ring-mid b{display:block;font-family:var(--serif);font-size:calc(var(--ts-body)*2.2);color:var(--th);line-height:1}
+.ring-mid span{font-size:var(--ts-cap);color:var(--tsub)}
+.ring-lab{font-size:var(--ts-body);color:var(--tp)}
+
 /* 页面配图 */
 .page .pg-img{position:absolute;inset:0;background-size:cover;background-position:center;
   opacity:.30;pointer-events:none;z-index:0}
@@ -1396,6 +1420,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.7 — 开始画图了</div>
+        <div class="logdate">2026-10-25</div>
+        <ul class="loglist">
+          <li><b>新增三种数据图</b>：<b>横向条形</b>（标签 + 条 + 数值）、<b>进度条组</b>（多列纵向对比）、<b>占比环</b>（环 + 中心大字）。全部用内联 SVG 现场绘制，跟随模板配色。</li>
+          <li><b>比例是准的</b>：条形长度、柱高、环弧都按数值占最大值的比例算。实测输入 80/40/20 得到 100%/50%/25%；占比 75% 的环弧长 254.5（整圈 339.3）。</li>
+          <li><b>什么时候会自动用</b>：只有内容里真的出现了可比较的数字时，AI 才会选图表版式——没有数字就不画，不硬凑。</li>
+          <li><b>顺手</b>：环图在小舞台上会溢出，已加尺寸约束；条形/进度/环三种在窄舞台实测均不溢出。</li>
+        </ul>
         <div class="logver">V1.6 — 补上图形、按规范重排、导出不再出界</div>
         <div class="logdate">2026-10-25</div>
         <ul class="loglist">
@@ -1705,7 +1737,8 @@ const LAYOUT_DOC_JS = `可用版式（layout）与 content 写法（content 永�
 - compare　左右对照。恰好 2 条，格式「大标题|要点①；要点②；要点③」。
 - quote　　金句页。恰好 1 条引文；出处写在 note 里。
 - table　　无竖线表格。3~6 条，格式「指标|数值|备注」。
-- zigzag　 交错图文。3~6 条，格式「小标题|说明」，左右交替排布。`;
+- zigzag　 交错图文。3~6 条，格式「小标题|说明」，左右交替排布。
+- chart　　数据图。**只有在内容里真的有可比较的数字时才用**。除 title/content 外，再给一个 chart 字段：{"type":"bar|progress|ring","unit":"%","items":[{"label":"指标名","value":68}]}；type=bar 横向条形（最常用），progress 纵向进度条组，ring 占比环（items 只给一条，value 为 0~100）。content 给空数组即可，note 照常。`;
 
 const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
 1. 【标题即结论】页标题必须是一句有信息量的判断，不能是标签。
@@ -1729,7 +1762,7 @@ const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
 【槽位语法·硬性】除 cover / closing / bullets / grid 外，每一条 content 都必须写成「小标题|说明」的形式（英文竖线 | 分隔）。缺少分隔符会导致该页无法排版；宁可换一种版式，也不要漏写 |。
 
 示例（6 页；注意每条槽位、结论式页标题、每页收束句）：
-{"title":"第一次实习面试，四步就能准备好","subtitle":"给大三学生的实操清单","slides":[{"title":"第一次实习面试，四步就能准备好","layout":"cover","content":["面向大三学生","2026 年秋"],"note":""},{"title":"面试不是临场发挥，而是提前设计好的对话","layout":"bullets","content":["简历决定你能不能进面试","高频问题有规律，提前准备能覆盖八成","复盘决定下一次能不能更好"],"note":"三步里任何一步做扎实，结果都会明显不同。"},{"title":"简历要用事实说话","layout":"two_col","content":["写什么|只写做过的项目与结果","怎么量|用数字描述规模与效果","怎么排|把与岗位最相关的放最前","怎么改|找一位学长帮你逐行改"],"note":"简历是筛选题，不是自我介绍。"},{"title":"高频问题有套路，提前练就不慌","layout":"steps","content":["自我介绍|一分钟内，突出与岗位相关的经历","为什么选我们|结合公司业务与自身兴趣","你的缺点|说一个你正在改、且不影响核心工作的点"],"note":"把答案练到脱口而出，现场才留得出余量。"},{"title":"复盘要落到一个能改的动作上","layout":"zigzag","content":["记录|面试当天记下所有被问到的问题","评估|对照 STAR 找出逻辑不清、例子不足处","改进|下次面试前只改一个最痛的短板"],"note":"复盘不是写日记，是找出下次能改的那一个动作。"},{"title":"现在就开始，把第一次面试变成有准备的练习","layout":"closing","content":["简历改三遍，找同学互审","高频问题写下来，练到自然","每次面试后花十分钟复盘"],"note":"第一次面试的价值，是让第二次更容易。"}]}`;
+{"title":"第一次实习面试，四步就能准备好","subtitle":"给大三学生的实操清单","slides":[{"title":"第一次实习面试，四步就能准备好","layout":"cover","content":["面向大三学生","2026 年秋"],"note":""},{"title":"面试不是临场发挥，而是提前设计好的对话","layout":"bullets","content":["简历决定你能不能进面试","高频问题有规律，提前准备能覆盖八成","复盘决定下一次能不能更好"],"note":"三步里任何一步做扎实，结果都会明显不同。"},{"title":"简历要用事实说话","layout":"two_col","content":["写什么|只写做过的项目与结果","怎么量|用数字描述规模与效果","怎么排|把与岗位最相关的放最前","怎么改|找一位学长帮你逐行改"],"note":"简历是筛选题，不是自我介绍。"},{"title":"三个环节的完成率都不高","layout":"chart","content":[],"chart":{"type":"bar","unit":"%","items":[{"label":"简历投递","value":68},{"label":"面试邀约","value":45},{"label":"拿到 offer","value":22}]},"note":"卡点在中间环节，不是投得不够多。"},{"title":"高频问题有套路，提前练就不慌","layout":"steps","content":["自我介绍|一分钟内，突出与岗位相关的经历","为什么选我们|结合公司业务与自身兴趣","你的缺点|说一个你正在改、且不影响核心工作的点"],"note":"把答案练到脱口而出，现场才留得出余量。"},{"title":"复盘要落到一个能改的动作上","layout":"zigzag","content":["记录|面试当天记下所有被问到的问题","评估|对照 STAR 找出逻辑不清、例子不足处","改进|下次面试前只改一个最痛的短板"],"note":"复盘不是写日记，是找出下次能改的那一个动作。"},{"title":"现在就开始，把第一次面试变成有准备的练习","layout":"closing","content":["简历改三遍，找同学互审","高频问题写下来，练到自然","每次面试后花十分钟复盘"],"note":"第一次面试的价值，是让第二次更容易。"}]}`;
 
 const SKILL_META = {
   report:    { name:"职场报告", desc:"工作汇报 / 述职：结论先行、分条陈述、重点标金、数据支撑，庄重清晰。",
@@ -5329,10 +5362,10 @@ function autoFit(){
   }
 }
 /* ---- 版式词表：必须与渲染分支严格一一对应（下方 checkRenderer 会自检） ---- */
-const LAYOUTS=["cover","closing","bullets","two_col","grid","kpi","timeline","steps","compare","quote","table","zigzag"];
+const LAYOUTS=["cover","closing","bullets","two_col","grid","kpi","timeline","steps","compare","quote","table","zigzag","chart"];
 /* 渲染签名：用于启动自检，检测「AI 说要用、前端画不出」的静默降级 */
 const LAYOUT_SIG={cover:"ck",closing:"ct",bullets:"ulist",two_col:"twocol-body",grid:"lgrid",
-  kpi:"kpi-row",timeline:"tl-item",steps:"step-n",compare:"cmp-rule",quote:"qk",table:"tbl",zigzag:"zz-row"};
+  kpi:"kpi-row",timeline:"tl-item",steps:"step-n",compare:"cmp-rule",quote:"qk",table:"tbl",zigzag:"zz-row",chart:"chart"};
 
 function normLayout(l){
   l=String(l||"bullets").toLowerCase().replace(/[-\s]+/g,"_");
@@ -5352,6 +5385,7 @@ const LAYOUT_RULE = {
   quote:    {min:1, max:1, pipe:0},
   table:    {min:3, max:6, pipe:1},
   zigzag:   {min:3, max:6, pipe:1},
+  chart:    {min:1, max:6, pipe:0},
   two_col:  {min:2, max:6, pipe:1},
   bullets:  {min:1, max:6, pipe:0},
   grid:     {min:1, max:8, pipe:0}
@@ -5439,6 +5473,56 @@ function poemFootHTML(i){
   return '<div class="poem-foot">' + esc(p.text) + '</div>';
 }
 
+
+/* ===================== 图表（纯 SVG / DOM，跟随主题色） ===================== */
+function chartItems(s, pts){
+  const ch = s.chart || {};
+  let items = Array.isArray(ch.items) ? ch.items.slice(0,6) : [];
+  if(!items.length){
+    items = pts.map(function(p){ const a=splitPair(p); return {label:a[0], value:parseFloat(a[1])||0}; });
+  }
+  return items.filter(function(it){ return it && (it.label!==undefined || it.value!==undefined); });
+}
+function chartHTML(s, pts){
+  const ch = s.chart || {};
+  const type = String(ch.type||"bar").toLowerCase();
+  const unit = ch.unit ? String(ch.unit) : "";
+  const items = chartItems(s, pts);
+  if(!items.length) return "";
+  const nums = items.map(function(it){ return Math.abs(parseFloat(it.value)||0); });
+  const max = Math.max.apply(null, nums.concat([1]));
+
+  if(type==="ring"){
+    const it = items[0];
+    let v = parseFloat(it.value)||0;
+    v = Math.max(0, Math.min(100, v));
+    const r=54, C=2*Math.PI*r;
+    return '<div class="chart chart-ring">'+
+      '<svg viewBox="0 0 140 140" class="ring-svg" aria-hidden="true">'+
+        '<circle cx="70" cy="70" r="'+r+'" class="ring-bg"></circle>'+
+        '<circle cx="70" cy="70" r="'+r+'" class="ring-fg" stroke-dasharray="'+(C*v/100).toFixed(1)+' '+C.toFixed(1)+'"></circle>'+
+      '</svg>'+
+      '<div class="ring-mid"><b>'+esc(String(it.value))+'</b><span>'+esc(unit)+'</span></div>'+
+      '<div class="ring-lab">'+esc(it.label||"")+'</div></div>';
+  }
+  if(type==="progress"){
+    return '<div class="chart chart-prog">'+items.map(function(it){
+      const v=Math.abs(parseFloat(it.value)||0);
+      return '<div class="cp-col">'+
+        '<div class="cp-val">'+esc(String(it.value))+esc(unit)+'</div>'+
+        '<div class="cp-track"><div class="cp-fill" style="height:'+(v/max*100).toFixed(1)+'%"></div></div>'+
+        '<div class="cp-lab">'+esc(it.label||"")+'</div></div>';
+    }).join("")+'</div>';
+  }
+  return '<div class="chart chart-bar">'+items.map(function(it){
+    const v=Math.abs(parseFloat(it.value)||0);
+    return '<div class="cb-row">'+
+      '<div class="cb-lab">'+esc(it.label||"")+'</div>'+
+      '<div class="cb-track"><div class="cb-fill" style="width:'+(v/max*100).toFixed(1)+'%"></div></div>'+
+      '<div class="cb-val">'+esc(String(it.value))+esc(unit)+'</div></div>';
+  }).join("")+'</div>';
+}
+
 function pageHTML(s,i,total){
   const N=normalizeSlide(s);
   const L=N.layout, pts=N.pts;
@@ -5477,6 +5561,8 @@ function pageHTML(s,i,total){
     body=`<div class="twocol-body">
       <div class="tc-col">${colHTML(pts.slice(0,mid))}</div>
       <div class="tc-col">${colHTML(pts.slice(mid))}</div></div>`;
+  }else if(L==="chart"){
+    body=chartHTML(s,pts);
   }else if(L==="grid"){
     body=`<div class="lgrid">${pts.map((p,ii)=>`<div class="lcell"><div class="i">${String(ii+1).padStart(2,"0")}</div><p>${esc(p)}</p></div>`).join("")}</div>`;
   }else{
