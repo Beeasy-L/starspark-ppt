@@ -6892,7 +6892,8 @@ const LAYOUT_RULE = {
   quote:    {min:1, max:1, pipe:0},
   table:    {min:3, max:6, pipe:1},
   zigzag:   {min:3, max:6, pipe:1},
-  chart:    {min:1, max:6, pipe:0},
+  /* chart 的数据在 s.chart 里，content 允许为空 —— min 必须是 0，否则会被误降级 */
+  chart:    {min:0, max:6, pipe:0},
   two_col:  {min:2, max:6, pipe:1},
   bullets:  {min:1, max:6, pipe:0},
   grid:     {min:1, max:8, pipe:0}
@@ -7374,9 +7375,11 @@ function persist(){
   if(!state.doctor)return;
   try{
     const recs=JSON.parse(localStorage.getItem(KEY)||"[]");
-    /* 配图是 base64 大字符串，存进历史会撑爆 localStorage —— 落库前剥离，只留文字 */
+    /* 配图是 base64 大字符串，存进历史会撑爆 localStorage —— 落库前剥离，只留文字。
+       但 chart 必须留下：它是小对象，剥掉的话刷新历史后图表页会变空白。 */
     const lightSlides=state.slides.map(s=>{
       const o={title:s.title,layout:s.layout,content:s.content,note:s.note||""};
+      if(s.chart&&typeof s.chart==="object") o.chart=s.chart;
       return o;
     });
     const entry={title:state.doctor.title,subtitle:state.doctor.subtitle,template:state.template,
