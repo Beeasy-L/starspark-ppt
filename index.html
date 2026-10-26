@@ -443,6 +443,32 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 
 .xh-measuring *,.xh-measuring{animation:none!important;transition:none!important;opacity:1!important}
 
+/* ---- P0：停止生成 / 错误重试 / 单页重生成 ---- */
+.stop-btn{display:none;margin-top:10px;width:100%;padding:9px 12px;border-radius:9px;cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid var(--line2);color:var(--ink);font-size:12.5px;
+  font-family:inherit;transition:.18s}
+.stop-btn:hover{background:rgba(255,120,120,.14);border-color:rgba(255,120,120,.5);color:#FFC9C9}
+.progress.show .stop-btn{display:block}
+.err-bar{display:none;margin-top:10px;padding:11px 12px;border-radius:10px;
+  background:rgba(255,110,110,.08);border:1px solid rgba(255,110,110,.35);gap:10px;align-items:flex-start}
+.err-bar.show{display:flex}
+.e-body{flex:1;min-width:0}
+.e-title{font-size:12.5px;font-weight:700;color:#FFC9C9;margin-bottom:3px}
+.e-msg{font-size:11.5px;color:var(--ink2);line-height:1.55;word-break:break-word}
+.e-retry{padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  background:var(--gold);border:none;color:#241A08;font-weight:700;font-size:12px;font-family:inherit}
+.e-retry:hover{filter:brightness(1.08)}
+.e-close{background:none;border:none;color:var(--ink2);font-size:16px;cursor:pointer;padding:0 2px;line-height:1}
+.regen-btn{width:100%;padding:10px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:12.5px;
+  background:rgba(242,198,109,.10);border:1px solid rgba(242,198,109,.42);color:var(--gold)}
+.regen-btn:hover{background:rgba(242,198,109,.20)}
+.regen-btn:disabled{opacity:.5;cursor:not-allowed}
+/* 单页重生成中的遮罩 */
+.page.regen-busy{position:relative}
+.page.regen-busy::after{content:"正在重生成这一页…";position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;background:rgba(8,10,20,.62);color:var(--gold);
+  font-size:2.2cqw;letter-spacing:.08em;z-index:50;backdrop-filter:blur(2px)}
+
 /* 放映 */
 .overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
 .overlay.on{display:block}
@@ -1409,6 +1435,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="progress" id="progressbar">
         <div class="line"><span class="cur" id="progcur">正在拆解内容…</span><span id="progsub"></span></div>
         <div class="bar"><i id="progfill"></i></div>
+        <button class="stop-btn" id="btn-stop" type="button">停止生成</button>
+      </div>
+      <div class="err-bar" id="errbar">
+        <div class="e-body">
+          <div class="e-title" id="errtitle"></div>
+          <div class="e-msg" id="errmsg"></div>
+        </div>
+        <button class="e-retry" id="btn-retry" type="button">重试</button>
+        <button class="e-close" id="btn-err-close" type="button" aria-label="关闭">×</button>
       </div>
 
       <div id="canvas" class="canvas empty">
@@ -1427,6 +1462,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.5 — 生成中可以停下来，单页也能重做</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>生成中能停了</b>：生成时进度条下方出现「停止生成」，点一下就停，已生成的页面留着，可以直接编辑或重新生成。停止后按钮、进度条、音乐音量都会自动复位。</li>
+          <li><b>单页重做</b>：编辑面板里新增「↻ 重生成这一页」。只重做这一页，<b>其他页面逐字不变</b>；允许模型换一个更合适的版式（比如原来的要点列表换成大数字页）。</li>
+          <li><b>失败能看清原因、能一键重试</b>：生成失败时不再只弹一句「生成失败」，而是区分 <b>Key 问题 / 网络问题 / 服务问题 / 返回内容解析不了</b> 四类，并给出具体排查方向；你填过的内容一个字都不会丢，点「重试」直接重来。</li>
+          <li><b>流式过程也逐页出</b>：以前要等整份 JSON 闭合才出第一页（生成到 80% 屏幕还是空的，点停止什么都留不下）。现在模型吐出一页就渲染一页。</li>
+          <li><b>后端不再白跑</b>：浏览器停止后，本地服务会感知到连接断开并立即停止读取上游，不再继续消耗你的 Key。</li>
+        </ul>
         <div class="logver">V2.4 — 长标题再也不会溢出</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -1574,6 +1618,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   <button class="s-close" id="s-close">×</button>
   <h3>编辑当前页</h3>
   <div class="s-row"><div class="s-label">页标题</div><input class="ipt" id="s-title"></div>
+  <div class="s-row"><button class="regen-btn" id="s-regen" type="button">↻ 重生成这一页</button></div>
   <div class="s-row"><div class="s-label">版式</div><select class="ipt" id="s-layout"></select></div>
   <div class="s-row"><div class="s-label">要点内容</div><textarea class="ipt" id="s-content" placeholder="每行一个要点&#10;kpi 写「数字|标签」，timeline/steps 写「名称|说明」&#10;compare 写两行「标题|要点①；要点②」，table 写「指标|数值|备注」"></textarea></div>
   <div class="s-row"><div class="s-label">收束句（页面底部那句「所以呢」）</div><textarea class="ipt" id="s-note" rows="2" placeholder="这页的结论 / 影响 / 下一步"></textarea></div>
@@ -2178,7 +2223,7 @@ function normalizeBaseUrl(u){
   return u;
 }
 
-function directGenerate(body){
+function directGenerate(body, signal){
   const sd = new TransformStream();
   const w = sd.writable.getWriter();
   const enc = new TextEncoder();
@@ -2191,6 +2236,7 @@ function directGenerate(body){
       const url = normalizeBaseUrl(body.baseUrl) + "/chat/completions";
       const res = await fetch(url, {
         method: "POST",
+        signal: signal,
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + body.apiKey },
         body: JSON.stringify({
           model: body.model, stream: true, temperature: 0.7,
@@ -6173,7 +6219,10 @@ async function generate(){
   const baseUrl=$("#baseUrl").value.trim();
 
   /* ---- 校验通过：从这里起的清理一律交给 finally（结构性保证） ---- */
+  state.lastSource=text;      /* 存一份原文：重试与单页重生成都要用 */
+  clearError();
   generating=true;setUiGenerating(true);
+  genAbort=new AbortController();
   try{ xhPoemReset(); }catch(e){}   /* 每份 deck 重新选诗 */
   let acc="";
   try{
@@ -6189,9 +6238,15 @@ async function generate(){
     saveApiPrefs(apiKey,model,baseUrl);
 
     const res = state.backend
-      ? await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
-      : directGenerate(body);
-    if(!res.ok){const j=await res.json().catch(()=>null);throw new Error((j&&j.error)||`服务器错误 ${res.status}`);}
+      ? await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(body),signal:genAbort.signal})
+      : directGenerate(body,genAbort.signal);
+    if(!res.ok){
+      const j=await res.json().catch(()=>null);
+      const err=new Error((j&&j.error)||("服务器错误 "+res.status));
+      err.status=res.status;
+      throw err;
+    }
     const reader=res.body.getReader();const dec=new TextDecoder();
     let buf="";
     let finished=false;
@@ -6226,30 +6281,325 @@ async function generate(){
     }catch(err){ toast("配图失败："+((err&&err.message)||err)); }
     if(!state.doctor){toast("未解析到有效 PPT 结构，请重试或精简内容");}
   }catch(e){
-    toast("生成失败："+((e&&e.message)||e));
-    resetCanvas();
+    if(e&&e.name==="AbortError"){
+      /* 用户主动停止：已生成的页面全部保留，不当成失败 */
+      const kept=state.slides.length;
+      toast(kept?("已停止生成，保留了 "+kept+" 页"):"已停止生成");
+      if(!kept) resetCanvas();
+    }else{
+      const info=showError(e);
+      toast("生成失败："+info.title);
+      if(!state.doctor) resetCanvas();
+    }
   }finally{
     state.genText="";
-    try{ if(bgm&&bgm.duckOff) bgm.duckOff(); }catch(e){}  /* 恢复音量：成功失败都会跑 */
-    generating=false;setUiGenerating(false);
+    try{ if(bgm&&bgm.duckOff) bgm.duckOff(); }catch(e){}  /* 恢复音量：成功失败中断都会跑 */
+    generating=false;
+    genAbort=null;
+    setUiGenerating(false);
     $("#progressbar").classList.remove("show");
     if(state.doctor)persist();
   }
 }
+
+/* ===================== P0：中断生成 / 失败重试 / 单页重生成 ===================== */
+let genAbort=null;                 /* 当前生成请求的 AbortController */
+let lastGenInputs=null;            /* 最近一次生成的入参，供「重试」复用 */
+
+/* ---- 错误分类：Key / 网络 / 服务 / 解析 ---- */
+function classifyError(e){
+  const msg=String((e&&e.message)||e||"未知错误");
+  const st=e&&e.status;
+  if(e&&e.name==="AbortError") 
+    return {kind:"abort",title:"已停止生成",msg:"已生成的页面都保留着，可以继续编辑或重新生成。"};
+  if(st===401||st===403||/401|403|unauthor|invalid[_\s-]?api[_\s-]?key|authentication|incorrect api key/i.test(msg))
+    return {kind:"key",title:"API Key 有问题",
+      msg:"接口拒绝了这次请求。"+msg+"\n请检查：Key 是否复制完整、是否已过期、账户余额是否充足、模型名是否开通。"};
+  if(/Failed to fetch|NetworkError|network|ERR_NAME|ERR_INTERNET|CORS|Load failed/i.test(msg))
+    return {kind:"network",title:"网络不通",
+      msg:msg+"\n可能是断网、接口地址写错、或该接口不允许浏览器跨域（纯前端模式）。"};
+  if(st>=500||/服务器错误|后端异常|502|503|504|Bad Gateway|Internal Server/i.test(msg))
+    return {kind:"server",title:"服务端暂时不可用",msg:msg+"\n通常是接口侧波动，稍等几秒再重试。"};
+  if(/JSON|解析|未解析到有效/i.test(msg))
+    return {kind:"parse",title:"返回内容无法解析",msg:msg+"\n可以点重试；若反复出现，请把内容精简一些或换个模型。"};
+  return {kind:"unknown",title:"生成失败",msg:msg};
+}
+function showError(e){
+  const info=classifyError(e);
+  if(info.kind==="abort"){ toast(info.title); return info; }
+  $("#errtitle").textContent=info.title;
+  $("#errmsg").textContent=info.msg;
+  $("#errbar").classList.add("show");
+  return info;
+}
+function clearError(){ $("#errbar").classList.remove("show"); }
+
+/* ---- 停止生成 ---- */
+function stopGenerate(){
+  if(!genAbort) return;
+  try{ genAbort.abort(); }catch(e){}
+}
+
+/* ---- 单页重生成：构造提示词 ---- */
+function buildSinglePagePromptJS(i){
+  const s=state.slides[i]||{};
+  const meta=SKILL_META[state.skill]||SKILL_META.general;
+  const outline=state.slides.map((x,k)=>(k+1)+". "+(x.title||"(无标题)")).join("\n");
+  const cur=(s.content||[]).map(x=>"- "+x).join("\n");
+  const parts=[];
+  parts.push("你正在为一份已经生成好的 PPT 重做其中**单独一页**。只输出这一页，不要输出整份。\n\n【原始内容】\n"+String(state.lastSource||$("#prompt").value||"").slice(0,6000));
+  const refTxt=(state.refTexts||[]).join("\n\n---\n\n");
+  if(refTxt) parts.push("\n\n【参考材料】\n"+refTxt.slice(0,3000));
+  parts.push("\n\n【应用方向】"+meta.name+"。"+meta.desc);
+  parts.push("\n\n【整份大纲】共 "+state.slides.length+" 页，当前要重做第 "+(i+1)+" 页：\n"+outline);
+  parts.push("\n\n【这一页现在长这样】\n标题："+(s.title||"(空)")+"\n版式："+(s.layout||"(无)")+"\n要点：\n"+(cur||"(空)"));
+  parts.push("\n\n【输出要求·硬性】\n1. 只输出一个 JSON 对象（单页 slide），不要包 deck、不要 slides 数组、不要解释。\n"+
+    "2. 字段：title / layout / content / note（版式需要时加 chart）。\n"+
+    "3. title 必须是结论句。\n4. content 必须符合该版式的槽位语法（该带「|」的要带）。\n"+
+    "5. note 一句收束语。\n6. 允许换一种更合适的版式，但要与前后页错开。\n"+
+    "7. 只讲这一页的一件事，不重复其他页。\n8. 不编造数字。");
+  return parts.join("\n\n");
+}
+
+/* 从模型输出里抠出第一个完整的单页 JSON 对象 */
+function extractSingleSlide(raw){
+  let t=String(raw||"").replace(/```json/gi,"").replace(/```/g,"");
+  const start=t.indexOf("{");
+  if(start<0) return null;
+  let depth=0,inStr=false,esc=false;
+  for(let i=start;i<t.length;i++){
+    const ch=t[i];
+    if(inStr){
+      if(esc){esc=false;}
+      else if(ch==="\\"){esc=true;}
+      else if(ch==='"'){inStr=false;}
+      continue;
+    }
+    if(ch==='"'){inStr=true;continue;}
+    if(ch==="{")depth++;
+    else if(ch==="}"){
+      depth--;
+      if(depth===0){
+        const sub=t.slice(start,i+1);
+        try{
+          const o=JSON.parse(sub);
+          if(o&&o.slides&&Array.isArray(o.slides)&&o.slides.length) return o.slides[0];
+          if(o&&(o.layout||o.title||o.content)) return o;
+        }catch(e){}
+      }
+    }
+  }
+  return null;
+}
+
+/* 单页重生成主流程 */
+async function regeneratePage(i){
+  if(generating){ toast("正在生成中，请先停止或等待完成"); return; }
+  if(!state.slides[i]) return;
+  const apiKey=$("#apikey").value.trim();
+  if(!apiKey){ toast("请先填写你的 API Key"); return; }
+  let model=$("#model").value;
+  if(model==="__custom__"){ const cus=$("#model-custom"); model=cus?cus.value.trim():""; }
+  if(!model){ toast("请填写自定义模型名"); return; }
+  const baseUrl=$("#baseUrl").value.trim();
+  if(!state.lastSource) state.lastSource=($("#prompt").value||"").trim();
+  if(!state.lastSource){ toast("缺少原始内容，无法重生成这一页"); return; }
+
+  generating=true;
+  const btn=$("#s-regen");
+  if(btn){ btn.disabled=true; btn.textContent="↻ 正在重生成…"; }
+  setUiGenerating(true);
+  const pgEl=document.querySelector("#stage .page");
+  if(pgEl) pgEl.classList.add("regen-busy");
+  let acc="";
+  try{ if(bgm&&bgm.duckOn) bgm.duckOn(); }catch(e){}
+
+  const body={text:state.lastSource,skill:state.skill,template:state.template,
+    refText:(state.refTexts||[]).join("\n\n---\n\n"),pageIndex:i,
+    outline:state.slides.map(x=>({title:x.title||""})),
+    currentPage:{title:state.slides[i].title||"",layout:state.slides[i].layout||"",content:state.slides[i].content||[]},
+    apiKey,baseUrl,model};
+
+  try{
+    const ctrl=new AbortController();
+    genAbort=ctrl;
+    const res = state.backend
+      ? await fetch("/api/regenerate",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(body),signal:ctrl.signal})
+      : directRegenerate(body,ctrl.signal);
+    if(!res.ok){
+      const j=await res.json().catch(()=>null);
+      const err=new Error((j&&j.error)||("服务器错误 "+res.status)); err.status=res.status; throw err;
+    }
+    const reader=res.body.getReader();const dec=new TextDecoder();
+    let buf="", finished=false, srvErr=null;
+    while(!finished){
+      const {value,done}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf("\n\n"))!==-1){
+        const evt=buf.slice(0,idx); buf=buf.slice(idx+2);
+        const dataLine=evt.split("\n").find(l=>l.startsWith("data:"));
+        const evtName=(evt.split("\n").find(l=>l.startsWith("event:"))||"").slice(6).trim();
+        if(!dataLine)continue;
+        let payload;try{payload=JSON.parse(dataLine.slice(5).trim());}catch(e){continue;}
+        if(evtName==="chunk"){acc+=payload;}
+        else if(evtName==="done"){finished=true;break;}
+        else if(evtName==="error"){srvErr=payload;finished=true;break;}
+      }
+    }
+    if(srvErr) throw new Error(srvErr);
+    const one=extractSingleSlide(acc);
+    if(!one) throw new Error("返回内容无法解析成单页 JSON");
+    /* 只替换这一页，其他页原样保留 */
+    const fixed={title:one.title||state.slides[i].title,layout:normLayout(one.layout||state.slides[i].layout),
+      content:Array.isArray(one.content)?one.content.map(String):[],note:one.note||""};
+    if(one.chart&&typeof one.chart==="object") fixed.chart=one.chart;
+    state.slides[i]=fixed;
+    state.current=i;
+    renderStage();renderSlide();renderThumbs();
+    try{ if($("#sheet").classList.contains("on")) openSheet(i); }catch(e){}
+    persist();
+    toast("已重生成第 "+(i+1)+" 页");
+    clearError();
+  }catch(e){
+    if(e&&e.name==="AbortError"){ toast("已停止重生成，原内容保留"); }
+    else{ showError(e); toast("这一页重生成失败，已保留原内容"); }
+  }finally{
+    try{ if(bgm&&bgm.duckOff) bgm.duckOff(); }catch(e){}
+    generating=false; genAbort=null;
+    setUiGenerating(false);
+    const b2=$("#s-regen"); if(b2){ b2.disabled=false; b2.textContent="↻ 重生成这一页"; }
+    const pg2=document.querySelector("#stage .page"); if(pg2) pg2.classList.remove("regen-busy");
+    if(state.doctor&&state.slides[state.current]) { try{ renderSlide(); }catch(e){} }
+  }
+}
+
+/* 纯前端直连版单页重生成：包装成与后端相同的 SSE 形状 */
+function directRegenerate(body, signal){
+  const sd=new TransformStream();
+  const w=sd.writable.getWriter();
+  const enc=new TextEncoder();
+  const send=(evt,data)=>w.write(enc.encode("event: "+evt+"\ndata: "+JSON.stringify(data)+"\n\n"));
+  (async function(){
+    try{
+      const sysp=buildSystemPromptJS(body.skill);
+      const usrp=buildSinglePagePromptJS(body.pageIndex);
+      const url=normalizeBaseUrl(body.baseUrl)+"/chat/completions";
+      const r=await fetch(url,{method:"POST",signal:signal,
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+body.apiKey},
+        body:JSON.stringify({model:body.model,stream:true,temperature:0.7,
+          messages:[{role:"system",content:sysp},{role:"user",content:usrp}]})});
+      if(!r.ok){
+        const t=await r.text().catch(()=>"");
+        await send("error","接口返回 "+r.status+"："+String(t).slice(0,300));
+        await w.close(); return;
+      }
+      const reader=r.body.getReader();const dec=new TextDecoder();
+      let buf="";
+      while(true){
+        const {value,done}=await reader.read();
+        if(done)break;
+        buf+=dec.decode(value,{stream:true});
+        let idx;
+        while((idx=buf.indexOf("\n\n"))!==-1){
+          const evt=buf.slice(0,idx);buf=buf.slice(idx+2);
+          for(const line of evt.split("\n")){
+            if(!line.startsWith("data:"))continue;
+            const d=line.slice(5).trim();
+            if(d==="[DONE]"){ await send("done",""); await w.close(); return; }
+            try{
+              const o=JSON.parse(d);
+              const piece=((o.choices||[{}])[0].delta||{}).content||"";
+              if(piece) await send("chunk",piece);
+            }catch(e){}
+          }
+        }
+      }
+      await send("done","");
+    }catch(err){
+      try{ await send("error",(err&&err.name==="AbortError")?"__abort__":String((err&&err.message)||err)); }catch(e){}
+    }finally{ try{ await w.close(); }catch(e){} }
+  })();
+  return new Response(sd.readable,{headers:{"Content-Type":"text/event-stream"}});
+}
+
+
+
+/* ===================== P0：按钮接线 ===================== */
+(function bindP0(){
+  const stop=$("#btn-stop");
+  if(stop) stop.onclick=()=>{
+    stopGenerate();
+    stop.textContent="正在停止…";
+    setTimeout(()=>{ stop.textContent="停止生成"; },1600);
+  };
+  const retry=$("#btn-retry");
+  if(retry) retry.onclick=()=>{ clearError(); generate(); };
+  const close=$("#btn-err-close");
+  if(close) close.onclick=()=>clearError();
+  const regen=$("#s-regen");
+  if(regen) regen.onclick=()=>{
+    const i=(typeof state.current==="number")?state.current:0;
+    regeneratePage(i);
+  };
+})();
+
 function parseStreaming(raw){
-  // 提取并增量解析 JSON（容忍前后缀与未闭合）
+  /* 提取并增量解析 JSON（容忍前后缀与未闭合）。
+     关键：模型是一个字一个字吐出来的，完整 JSON 要到最后一刻才闭合。
+     若只等完整解析，生成到 80% 时页面上还是空的——用户点「停止生成」
+     就什么都留不下。所以这里额外做**半成品解析**：
+     把 slides 数组里已经闭合的 slide 对象逐个抠出来，边生成边出页。 */
   const s=raw.trim();
   const start=s.indexOf("{");if(start<0)return;
-  // 尝试直接完整解析
+
+  // 1) 完整解析
   try{
     const obj=JSON.parse(s.slice(start));
     if(obj&&obj.slides&&Array.isArray(obj.slides)&&obj.slides.length){buildDeck(obj);return;}
   }catch(e){}
-  // 未完成：尝试解析已经完好的 slides 前缀（按对象闭合位置）
-  try{if(!state.doctor)return;
-    const obj=JSON.parse(s.slice(start));
-    buildDeck(obj);
+
+  // 2) 半成品：逐个抠已闭合的 slide
+  const si=s.indexOf('"slides"');
+  if(si<0)return;
+  const arrStart=s.indexOf("[",si);
+  if(arrStart<0)return;
+  const slides=[];
+  let depth=0,inStr=false,esc=false,objStart=-1;
+  for(let i=arrStart+1;i<s.length;i++){
+    const ch=s[i];
+    if(inStr){
+      if(esc)esc=false;
+      else if(ch==="\\")esc=true;
+      else if(ch==='"')inStr=false;
+      continue;
+    }
+    if(ch==='"'){inStr=true;continue;}
+    if(ch==="{"){ if(depth===0)objStart=i; depth++; }
+    else if(ch==="}"){
+      depth--;
+      if(depth===0&&objStart>=0){
+        try{
+          const o=JSON.parse(s.slice(objStart,i+1));
+          if(o&&(o.layout||o.title))slides.push(o);
+        }catch(e){}
+        objStart=-1;
+      }
+    }
+  }
+  if(!slides.length)return;
+
+  // 标题也顺手捞（有就先用，没有给个占位）
+  let title="", subtitle="";
+  try{
+    const mt=s.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if(mt)title=JSON.parse('"'+mt[1]+'"');
+    const ms=s.match(/"subtitle"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if(ms)subtitle=JSON.parse('"'+ms[1]+'"');
   }catch(e){}
+  buildDeck({title:title||"生成中…",subtitle:subtitle,slides:slides});
 }
 function buildDeck(doctor){
   const created=!state.doctor;
