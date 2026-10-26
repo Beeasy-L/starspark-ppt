@@ -1665,6 +1665,15 @@ function readThemeColors(tplId){
   const isSerif = /serif|song|simsun|sung|宋|明体|mincho/i.test(fam);
   out.fontTitle = isKai ? "KaiTi" : (isSerif ? "SimSun" : "Microsoft YaHei");
   out.fontText  = "Microsoft YaHei";
+  /* 装饰母题：直接在取色的地方一并给出，任何调用方（按钮 / 测试页 / 脚本）都能拿到。
+     没有这一句，pptx.js 里 `if (dm)` 恒为假，装饰一个都不会画。 */
+  /* TPL_MOTIF 是装饰库 IIFE 的内部变量，主作用域取不到；
+     统一走 decoClsOf()（它内部会读 --deco-motif，再退回 XH_DECO.tplMotif） */
+  try{
+    out.decoMotif = (decoClsOf(t ? t.id : "") || "").replace(/^motif-/, "");
+  }catch(e){ out.decoMotif = ""; }
+  out.deco = true;
+  if (!out.decoMotif) console.warn("[星火PPT] 本次导出没有装饰：decoMotif 为空（模板 " + (t ? t.id : "?") + "）");
   wrap.remove();
   return out;
 }
@@ -5827,8 +5836,6 @@ $("#btn-export-pptx").onclick=()=>{
       })
     };
     const opts = readThemeColors(state.template);
-    opts.decoMotif = (decoClsOf(state.template)||"").replace(/^motif-/,"");
-    opts.deco = true;
     const bytes = XH_PPTX.build(deck, opts);      /* 同步返回 Uint8Array */
     const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
     const a=document.createElement("a");
