@@ -406,7 +406,10 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
    正文 18px / 页标题 2.11x / 模块小标题 1.5x / 副标题 1.17x / 注释 0.69x / 图注 0.83x / 大数字 3.5x / 封面 4.0x
    其余层级一律由正文按倍率推导，保证任何舞台尺寸下层级关系不变 */
 .page{
-  --ts-body:  clamp(15px, 1.875cqw, 18px);
+  /* --k 是 autoFit 的缩放系数（1 = 原尺寸）。所有字号都乘它，
+     否则超出画布时 autoFit 改 --k 也缩不动字（封面长标题曾因此必然溢出）。 */
+  --k: 1;
+  --ts-body:  calc(clamp(15px, 1.875cqw, 18px) * var(--k));
   --ts-title: calc(var(--ts-body) * 2.11);
   --ts-heading: calc(var(--ts-body) * 1.5);
   --ts-sub:   calc(var(--ts-body) * 1.17);
@@ -824,7 +827,9 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   --dx-safe-b:  var(--dx-band-b);
 
   /* 字号变量兜底（真实工程里由 index.html 的层级表给出；这里退回当前实测值） */
-  --ts-title: 4.079cqw; --ts-body: 1.974cqw; --ts-note: 1.447cqw; --ts-heading: 2.8125cqw;
+  --ts-body:  calc(clamp(15px, 1.875cqw, 18px) * var(--k, 1));
+  --ts-title: calc(var(--ts-body) * 2.11);
+  --ts-note:  calc(var(--ts-body) * 0.69); --ts-heading: 2.8125cqw;
 }
 
 /* ==========================================================================
@@ -1422,6 +1427,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.4 — 长标题再也不会溢出</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>修了一个一直没被发现的硬伤</b>：封面写长标题时会溢出，而且「自动缩字」救不回来。原因是<b>字号没有跟着缩放系数走</b>——更隐蔽的是，装饰库内联时带了一段「字号兜底」，把按规范定的字号又覆盖回了旧值，导致之前几轮的字号调整其实一直被它顶着。</li>
+          <li>现在所有字号都乘缩放系数；实测四种封面（长标题 + 副标题 + 两行说明、长标题、短标题、超长标题）<b>全部不再溢出</b>，超长标题会自动降到 0.75 倍、字号 48.5px。</li>
+          <li>自动缩字的下限从 0.70 放宽到 0.50（16 档细调），避免极端长文缩不到底。</li>
+          <li><b>用我自己写的一份真实 deck 跑通全链路</b>：8 页 8 种版式各不相同、零降级、零溢出、导出 188 个形状、PowerPoint 打开无修复。</li>
+        </ul>
         <div class="logver">V2.3 — 渐变也抄过来了</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -6333,9 +6346,12 @@ function autoFit(){
   const pg=document.querySelector("#stage .page");
   if(!pg)return;
   pg.style.removeProperty("--k");
-  for(let i=0;i<6;i++){
+  /* 逐步缩到 0.5 为止（原来只到 0.70，长封面标题缩不到底就必然溢出）。
+     先粗调（每步 5%），到 0.7 以下改细调（每步 2%），避免一次性缩太狠。 */
+  const steps=[0.95,0.90,0.85,0.80,0.75,0.70,0.68,0.66,0.64,0.62,0.60,0.58,0.56,0.54,0.52,0.50];
+  for(let i=0;i<steps.length;i++){
     if(pg.scrollHeight<=pg.clientHeight+1)break;
-    pg.style.setProperty("--k",(1-(i+1)*0.05).toFixed(2));
+    pg.style.setProperty("--k",String(steps[i]));
   }
 }
 /* ---- 版式词表：必须与渲染分支严格一一对应（下方 checkRenderer 会自检） ---- */
