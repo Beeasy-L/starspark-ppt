@@ -5701,15 +5701,58 @@ function closingHTML(s){
 }
 /* 渲染契约自检：词表里每个版式都必须真的画得出来 */
 function checkRenderer(){
+  /* 每个版式喂**符合它自己契约**的数据（LAYOUT_RULE 的 min/max/pipe）。
+     以前所有版式共用一份 2 条的样本，而 timeline/steps/table/zigzag 的 min 是 3，
+     normalizeSlide 会把它们降级成 bullets → 签名自然找不到 → 每次打开都误报 4 个"未实现"。 */
+  const SAMPLE={
+    cover:    ["副标题一","2026"],
+    closing:  ["收尾要点一","收尾要点二"],
+    bullets:  ["要点一","要点二","要点三"],
+    two_col:  ["左标题|左说明","右标题|右说明"],
+    grid:     ["并列一","并列二","并列三"],
+    kpi:      ["12|种版式","8|页"],
+    timeline: ["阶段一|说明一","阶段二|说明二","阶段三|说明三"],
+    steps:    ["步骤一|说明一","步骤二|说明二","步骤三|说明三"],
+    compare:  ["甲方|要点一；要点二","乙方|要点三；要点四"],
+    quote:    ["一句引文"],
+    table:    ["甲|1|备注","乙|2|备注","丙|3|备注"],
+    zigzag:   ["小标题一|说明一","小标题二|说明二","小标题三|说明三"],
+    chart:    []
+  };
   const bad=[];
   LAYOUTS.forEach(l=>{
+    const s={title:"自检标题",layout:l,content:SAMPLE[l]||["要点一","要点二","要点三"],note:"收束句"};
+    if(l==="chart") s.chart={type:"bar",unit:"%",items:[{label:"甲",value:60},{label:"乙",value:30}]};
     let html="";
-    try{html=pageHTML({title:"测试",layout:l,content:["数字|标签","标题|说明；要点一；要点二"],note:"收束"},0,8);}catch(e){bad.push(l+"(异常)");return;}
+    try{ html=pageHTML(s,0,8); }
+    catch(e){ bad.push(l+"(异常:"+(e&&e.message||e)+")"); return; }
     const sig=LAYOUT_SIG[l];
-    if(sig&&html.indexOf(sig)<0){bad.push(l+"(未命中 "+sig+")");}
+    if(sig && html.indexOf(sig)<0){
+      const n=normalizeSlide(s);
+      bad.push(l+(n.layout!==l ? "(被降级为 "+n.layout+"，说明自检样本不合契约)" : "(未命中 "+sig+")"));
+    }
   });
-  if(bad.length){console.error("[星火PPT] 渲染器缺版式：",bad.join("、"));
-    try{toast("⚠ 版式自检：未实现 "+bad.join("、"));}catch(e){}}
+
+  /* 反向自检：故意违规的数据**必须**被降级，而不是画出残页。
+     这样"降级"是有意行为、且被测试住，不会哪天被当成 bug 改坏。 */
+  const REVERSE=[
+    ["timeline",["只有一条|说明"],"bullets"],
+    ["compare",["只有单方|要点"],"bullets"],
+    ["zigzag",["一条","两条"],"bullets"],
+    ["kpi",["没有分隔符的数字"],"bullets"]
+  ];
+  REVERSE.forEach(function(r){
+    let got="";
+    try{ got=normalizeSlide({layout:r[0],content:r[1]}).layout; }catch(e){ got="异常"; }
+    if(got!==r[2]) bad.push("降级失效:"+r[0]+"→"+got+"（应为 "+r[2]+"）");
+  });
+
+  if(bad.length){
+    console.error("[星火PPT] 版式自检未通过：",bad.join("、"));
+    try{ toast("⚠ 版式自检未通过："+bad.join("、")); }catch(e){}
+  }else{
+    console.info("[星火PPT] 版式自检通过："+LAYOUTS.length+" 种版式渲染契约 + "+REVERSE.length+" 项降级规则");
+  }
   return bad;
 }
 
@@ -5719,14 +5762,23 @@ function openSheet(i){
   const s=state.slides[i];if(!s)return;
   $("#s-title").value=s.title||"";
   const ls=LAYOUTS, curL=normLayout(s.layout);
-  $("#s-layout").innerHTML=ls.map(l=>`<option value="${l}" ${l===curL?"selected":""}>${layoutName(l)}</option>`).join("");
+  /* 降级要让人看见：内容条数不够时，强结构版式会被降成列表。
+     直接在选项文字上说明，免得用户以为是版式坏了。 */
+  let degradedTo=null;
+  try{ degradedTo=normalizeSlide(s).layout; }catch(e){}
+  $("#s-layout").innerHTML=ls.map(l=>{
+    const isCur=(l===curL);
+    const tag=(isCur && degradedTo && degradedTo!==curL)
+      ? "（内容不足，实际按「"+layoutName(degradedTo)+"」排版）" : "";
+    return `<option value="${l}" ${isCur?"selected":""}>${layoutName(l)}${tag}</option>`;
+  }).join("");
   $("#s-content").value=(s.content||[]).join("\n");
   $("#s-note").value=s.note||"";
   $("#sheet").classList.add("on");
 }
 function layoutName(l){return{cover:"封面",closing:"结尾页",bullets:"要点列表",two_col:"左右两栏",
   grid:"并列条目",kpi:"大数字",timeline:"时间轴",steps:"流程步骤",compare:"左右对照",
-  quote:"金句页",table:"表格",zigzag:"交错排布"}[l]||l;}
+  quote:"金句页",table:"表格",zigzag:"交错排布",chart:"数据图"}[l]||l;}
 $("#s-close").onclick=()=>$("#sheet").classList.remove("on");
 $("#s-save").onclick=()=>{
   const i=state.current;const s=state.slides[i];if(!s)return;
