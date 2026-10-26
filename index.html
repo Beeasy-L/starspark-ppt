@@ -1422,6 +1422,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.2 — 圆弧、圆角也抄过来了</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>打通了两个「抄不过来」的硬骨头</b>：<b>环形图的圆弧</b>（按弧长比例还原成一圈分段刻度）和<b>圆角卡片</b>（导出成真正的圆角矩形）。</li>
+          <li><b>修了一个会让 PowerPoint 判定「文件损坏」的真 bug</b>：圆角矩形的调整值名字写错了一个字段（应为 adj 写成了 adj1），PowerPoint 直接拒绝打开、还报「文件损坏」。删掉圆角能开、加上就打不开，逐页二分才定位到。</li>
+          <li><b>验证方式也升级了</b>：不再只看「python 能解析」，而是<b>用真的 PowerPoint 打开</b>，确认不弹修复对话框。最终回归：13 版式 + 环形图 + 配图，<b>298 个形状，打开正常</b>。</li>
+          <li>顺带修：环形图底色那一圈的透明度丢了，会画成一个不透明的白环盖住整页。</li>
+        </ul>
         <div class="logver">V2.1 — 导出的样子 = 你看到的样子</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -4130,6 +4138,32 @@ window.XH_POEMS = {
    * 一个形状。o = {name, x, y, w, h, geom, fill, alpha, rot, anchor, paras}
    * 有 paras 才写 txBody（纯色块/圆点就不带文本框，避免污染 python-pptx 的文字统计）
    */
+
+  /* 形状调整值：圆角半径、环形角度都靠它 */
+  function avLst(adj) {
+    if (!adj || !adj.length) return "<a:avLst/>";
+    var s = "<a:avLst>";
+    /* 单个调整值的形状（roundRect 等）名字必须是 "adj"；
+       多调整值的（blockArc 等）才是 adj1/adj2/adj3。
+       名字写错 PowerPoint 会判定文件损坏（实测 roundRect + adj1 必然打不开）。 */
+    for (var i = 0; i < adj.length; i++) {
+      if (adj[i] == null) continue;
+      var nm = (adj.length === 1) ? "adj" : ("adj" + (i + 1));
+      s += '<a:gd name="' + nm + '" fmla="val ' + Math.round(adj[i]) + '"/>';
+    }
+    return s + "</a:avLst>";
+  }
+
+  /* 描边（SVG 的圆环靠它） */
+  function lineXml(o) {
+    if (!o.stroke) return "<a:ln><a:noFill/></a:ln>";
+    var w = emu(Math.max(1, o.strokeW || 1));
+    var clr = '<a:solidFill><a:srgbClr val="' + o.stroke + '"'
+      + (o.strokeAlpha != null ? '><a:alpha val="' + Math.round(o.strokeAlpha * 100000) + '"/></a:srgbClr>' : '/>')
+      + '</a:solidFill>';
+    return '<a:ln w="' + w + '">' + clr + '</a:ln>';
+  }
+
   function shape(o) {
     var geom = o.geom || "rect";
     var fill = o.fill
@@ -4142,8 +4176,8 @@ window.XH_POEMS = {
       + '<a:ext cx="' + emu(Math.max(1, o.w)) + '" cy="' + emu(Math.max(1, o.h)) + '"/></a:xfrm>';
     var s = '<p:sp><p:nvSpPr><p:cNvPr id="' + nid() + '" name="' + esc(o.name || "Shape") + '"/>'
       + '<p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>'
-      + '<p:spPr>' + xfrm + '<a:prstGeom prst="' + geom + '"><a:avLst/></a:prstGeom>'
-      + fill + '<a:ln><a:noFill/></a:ln></p:spPr>';
+      + '<p:spPr>' + xfrm + '<a:prstGeom prst="' + geom + '">' + avLst(o.adj) + '</a:prstGeom>'
+      + fill + lineXml(o) + '</p:spPr>';
     if (o.paras) {
       var ps = o.paras.length ? o.paras.join("") : emptyPara();
       s += '<p:txBody>' + bodyPrXml(o) + '<a:lstStyle/>' + ps + '</p:txBody>';
@@ -4994,13 +5028,67 @@ window.XH_POEMS = {
       e = table[i];
       if (!e || e.kind !== "rect") continue;
       if (e.fill) {
-        sb.push(shape({ name: "Box" + i, geom: "rect", x: e.x, y: e.y,
+        /* 圆角块用 roundRect，adj 按「圆角半径 / 短边」算（OOXML 用万分比） */
+        var rad = e.radius || 0;
+        var geom = "rect", adj = null;
+        if (rad > 0.5) {
+          geom = "roundRect";
+          adj = [Math.min(50000, Math.round(rad / Math.max(1, Math.min(e.w, e.h)) * 100000))];
+        }
+        sb.push(shape({ name: "Box" + i, geom: geom, adj: adj, x: e.x, y: e.y,
                         w: Math.max(1, e.w), h: Math.max(1, e.h),
                         fill: e.fill, alpha: (e.fillAlpha == null ? 1 : e.fillAlpha) }));
       } else if (e.border) {
         sb.push(shape({ name: "Line" + i, geom: "rect", x: e.x, y: e.y,
                         w: Math.max(1, e.w), h: Math.max(1, e.borderW || 1),
                         fill: e.border }));
+      }
+    }
+
+    /* SVG 图形：环形图的圆弧、图标 */
+    for (i = 0; i < table.length; i++) {
+      e = table[i];
+      if (!e || e.kind !== "svg") continue;
+      var sw2 = Math.max(1, e.strokeW || 1);
+      if (e.tag === "circle" || e.tag === "ellipse") {
+        if (e.frac > 0 && e.stroke) {
+          /* 部分圆弧（stroke-dasharray）→ 用分段刻度近似，稳定且视觉接近 */
+          var segs = 36, filled = Math.round(e.frac * segs);
+          var cx2 = e.x + e.w / 2, cy2 = e.y + e.h / 2;
+          var rr2 = Math.max(4, (Math.min(e.w, e.h) - sw2) / 2);
+          for (var k2 = 0; k2 < filled; k2++) {
+            var ang2 = k2 * 360 / segs - 90;
+            var th2 = ang2 * Math.PI / 180;
+            sb.push(shape({ name: "SvgSeg" + i + "_" + k2, geom: "rect",
+                            x: cx2 + rr2 * Math.cos(th2) - Math.max(1, sw2 / 2),
+                            y: cy2 + rr2 * Math.sin(th2) - Math.max(2, sw2),
+                            w: Math.max(1, sw2), h: Math.max(2, sw2 * 2),
+                            fill: e.stroke, rot: ang2,
+                            alpha: (e.strokeAlpha == null ? 1 : e.strokeAlpha) }));
+          }
+        } else if (e.stroke) {
+          /* 整圈 → 圆环（必须带上透明度，否则会变成一个不透明的实心白环盖住整页） */
+          var a2 = (e.strokeAlpha == null ? 1 : e.strokeAlpha);
+          if (a2 > 0.04) {
+            sb.push(shape({ name: "SvgRing" + i, geom: "donut", x: e.x, y: e.y,
+                            w: Math.max(2, e.w), h: Math.max(2, e.h),
+                            fill: e.stroke, alpha: a2 }));
+          }
+        } else if (e.fill) {
+          sb.push(shape({ name: "SvgDot" + i, geom: "ellipse", x: e.x, y: e.y,
+                          w: Math.max(2, e.w), h: Math.max(2, e.h),
+                          fill: e.fill, alpha: (e.fillAlpha == null ? 1 : e.fillAlpha) }));
+        }
+      } else {
+        /* rect / line / path / polyline → 退化成矩形（有填充用填充，否则用描边色画细条） */
+        if (e.fill) {
+          sb.push(shape({ name: "SvgBox" + i, geom: "rect", x: e.x, y: e.y,
+                          w: Math.max(1, e.w), h: Math.max(1, e.h),
+                          fill: e.fill, alpha: (e.fillAlpha == null ? 1 : e.fillAlpha) }));
+        } else if (e.stroke) {
+          sb.push(shape({ name: "SvgLine" + i, geom: "rect", x: e.x, y: e.y,
+                          w: Math.max(1, e.w), h: Math.max(1, e.h), fill: e.stroke }));
+        }
       }
     }
 
@@ -5841,11 +5929,49 @@ window.XH_POEMS = {
         out.push({ kind: "bg", fill: bg.hex, alpha: bg.alpha });
         continue;
       }
+      var rad = parseFloat(s.borderTopLeftRadius) || 0;
       out.push({
         kind: "rect", x: box.x, y: box.y, w: box.w, h: box.h,
         fill: bg ? bg.hex : null, fillAlpha: bg ? bg.alpha : 0,
-        border: bc ? bc.hex : null, borderW: bt ? +(bt * ky).toFixed(2) : 0
+        border: bc ? bc.hex : null, borderW: bt ? +(bt * ky).toFixed(2) : 0,
+        radius: rad ? +(rad * ky).toFixed(2) : 0
       });
+    }
+
+    /* ---- 3) SVG 图形（环形图的圆弧、图标） ---- */
+    var svgs = pageEl.querySelectorAll("svg");
+    for (var si = 0; si < svgs.length; si++) {
+      var sv = svgs[si];
+      if (!visible(sv)) continue;
+      var kids = sv.querySelectorAll("circle,ellipse,rect,line,path,polyline,polygon");
+      for (var ki = 0; ki < kids.length; ki++) {
+        var kk = kids[ki];
+        var tag = kk.tagName.toLowerCase();
+        var kr = kk.getBoundingClientRect();
+        if (kr.width < 0.5 || kr.height < 0.5) continue;
+        var ks = w.getComputedStyle(kk);
+        var kf = rgbToHex(ks.fill);
+        var ksf = rgbToHex(ks.stroke);
+        var sw = parseFloat(ks.strokeWidth) || 0;
+        var dash = kk.getAttribute("stroke-dasharray") || "";
+        var frac = 0;
+        if (dash) {
+          var dn = String(dash).split(/[\s,]+/).map(parseFloat);
+          if (dn.length >= 2 && dn[1] > 0) frac = Math.max(0, Math.min(1, dn[0] / dn[1]));
+        }
+        if (!kf && !ksf) continue;
+        out.push({
+          kind: "svg", tag: tag,
+          x: +((kr.left - pr.left) * kx).toFixed(2),
+          y: +((kr.top - pr.top) * ky).toFixed(2),
+          w: +(kr.width * kx).toFixed(2),
+          h: +(kr.height * ky).toFixed(2),
+          fill: kf ? kf.hex : null, fillAlpha: kf ? kf.alpha : 0,
+          stroke: ksf ? ksf.hex : null, strokeAlpha: ksf ? ksf.alpha : 1,
+          strokeW: sw ? +(sw * ky).toFixed(2) : 0,
+          frac: frac
+        });
+      }
     }
 
     if (!hadClass) pageEl.classList.remove("xh-measuring");
