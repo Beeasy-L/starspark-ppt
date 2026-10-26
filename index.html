@@ -1420,6 +1420,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.9 — 图表也能导出，自检不再喊狼来了</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>导出的 .pptx 现在能画数据图</b>：横向条形、纵向进度条、占比环，全部是 PowerPoint 里的真形状（不是文字拼的），比例按数值算——68% 的环点亮 36 段里的 24 段。</li>
+          <li><b>修了一个「每次都叫」的假警报</b>：版式自检原来用一份 2 条的样本去喂所有版式，而时间轴/流程/表格/交错版式最少要 3 条，于是它们被自动降级、自检就以为「没实现」——<b>每次打开都会弹一条红色警告</b>。现在按每种版式自己的要求喂数据，并额外加了 4 条反向检查（故意给不够的条数，验证它会正确降级）。</li>
+          <li><b>降级不再悄悄发生</b>：内容条数不足时，编辑面板里的版式名后面会直接注明「内容不足，实际按 XX 排版」。</li>
+          <li><b>修</b>：几个装饰形状越出画布边缘，已收回。</li>
+        </ul>
         <div class="logver">V1.8 — 导出里也有装饰了</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -3871,7 +3879,7 @@ window.XH_POEMS = {
         ell("DecoStar2", RX + 30, 96, 2, 2, 0.35);
         ell("DecoStar3", RX + 16, 150, 2.5, 2.5, 0.42);
         ell("DecoStar4", RX + 40, 210, 2, 2, 0.3);
-        out.push(shape({ name: "DecoHalo", geom: "donut", x: RX - 10, y: 240, w: 76, h: 76, fill: c, alpha: 0.12 }));
+        out.push(shape({ name: "DecoHalo", geom: "donut", x: RX - 42, y: 240, w: 70, h: 70, fill: c, alpha: 0.12 }));
         break;
       case "moon":
         ell("DecoMoon", RX - 6, 74, 66, 66, 0.16);
@@ -3893,8 +3901,8 @@ window.XH_POEMS = {
         ell("DecoMist2", RX - 6, 128, 74, 38, 0.11);
         break;
       case "wave":
-        out.push(shape({ name: "DecoWave1", geom: "wave", x: -40, y: BY - 26, w: W + 80, h: 26, fill: c, alpha: 0.12 }));
-        out.push(shape({ name: "DecoWave2", geom: "wave", x: -40, y: BY - 12, w: W + 80, h: 26, fill: c, alpha: 0.09 }));
+        out.push(shape({ name: "DecoWave1", geom: "wave", x: 0, y: BY - 26, w: W, h: 26, fill: c, alpha: 0.12 }));
+        out.push(shape({ name: "DecoWave2", geom: "wave", x: 0, y: BY - 12, w: W, h: 26, fill: c, alpha: 0.09 }));
         break;
       case "diagonal":
         out.push(shape({ name: "DecoDiag", geom: "rect", x: W - 74, y: -30, w: 26, h: 190, fill: c, alpha: 0.16, rot: -18 }));
@@ -3911,7 +3919,7 @@ window.XH_POEMS = {
         rect("DecoBar4", RX + 44, 112, 9, 78, 0.20);
         break;
       case "rings":
-        out.push(shape({ name: "DecoRing1", geom: "donut", x: RX - 12, y: 62, w: 74, h: 74, fill: c, alpha: 0.16 }));
+        out.push(shape({ name: "DecoRing1", geom: "donut", x: RX - 40, y: 62, w: 68, h: 68, fill: c, alpha: 0.16 }));
         ell("DecoRing2", RX + 22, 148, 34, 34, 0.12);
         ell("DecoRing3", RX + 30, 156, 18, 18, 0.30);
         break;
@@ -4561,10 +4569,122 @@ window.XH_POEMS = {
     footNote(sb, pal, s.note);
   }
 
+
+  /* ---------- 数据图：bar / progress / ring（真形状，不是文字排的柱状） ---------- */
+  function chartData(s) {
+    var ch = s && s.chart ? s.chart : {};
+    var items = (ch.items instanceof Array) ? ch.items.slice(0, 6) : [];
+    if (!items.length) {
+      var pts = contentOf(s), q;
+      for (q = 0; q < pts.length; q++) {
+        var pr = splitPair(pts[q]);
+        var v = parseFloat(String(pr[1]).replace(/[^\d.\-]/g, ""));
+        items.push({ label: pr[0], value: isNaN(v) ? 0 : v });
+      }
+    }
+    var out = [], i;
+    for (i = 0; i < items.length; i++) {
+      if (!items[i]) continue;
+      var vv = parseFloat(items[i].value);
+      out.push({ label: String(items[i].label == null ? "" : items[i].label),
+                 value: isNaN(vv) ? 0 : vv });
+    }
+    return { type: String(ch.type || "bar").toLowerCase(),
+             unit: ch.unit ? String(ch.unit) : "", items: out };
+  }
+
+  function layChart(sb, pal, deck, s, ctx) {
+    head(sb, pal, s.title);
+    var d = chartData(s), items = d.items, a = areaOf(ctx), i;
+    if (!items.length) { footNote(sb, pal, s.note); return; }
+
+    var max = 1;
+    for (i = 0; i < items.length; i++) max = Math.max(max, Math.abs(items[i].value));
+
+    if (d.type === "ring") {
+      /* 环形：底环 + 按比例点亮的分段刻度 + 中心大数字 */
+      var it = items[0];
+      var pct = Math.max(0, Math.min(100, Math.abs(it.value)));
+      var cx = a.x + a.w / 2, cy = a.y + a.h / 2 - 6;
+      var R = Math.min(a.w, a.h) * 0.31;
+      sb.push(shape({ name: "ChRingBg", geom: "donut", x: cx - R - 8, y: cy - R - 8,
+                      w: (R + 8) * 2, h: (R + 8) * 2, fill: pal.line, alpha: 0.55 }));
+      var segs = 36, filled = Math.round(pct / 100 * segs), k;
+      for (k = 0; k < segs; k++) {
+        if (k >= filled) break;
+        var ang = k * 360 / segs - 90;
+        var th = ang * Math.PI / 180;
+        var px = cx + R * Math.cos(th), py = cy + R * Math.sin(th);
+        sb.push(shape({ name: "ChSeg" + k, geom: "rect", x: px - 3, y: py - 8, w: 6, h: 16,
+                        fill: pal.accent, rot: ang }));
+      }
+      var numTxt = String(it.value) + d.unit;
+      sb.push(shape({ name: "ChVal", x: cx - 120, y: cy - 40, w: 240, h: 62, anchor: "ctr",
+        paras: [para([run(numTxt, { sz: 3200, b: true, color: pal.title, font: pal.ft })],
+          { algn: "ctr", lineSpcPct: 100000, sz: 3200, color: pal.title, b: true, font: pal.ft })] }));
+      sb.push(shape({ name: "ChLab", x: cx - 160, y: cy + R + 22, w: 320, h: 30, anchor: "t",
+        paras: [para([run(it.label, { sz: 1400, color: pal.text, font: pal.fb })],
+          { algn: "ctr", lineSpcPct: 120000, sz: 1400, color: pal.text, font: pal.fb })] }));
+      footNote(sb, pal, s.note);
+      return;
+    }
+
+    if (d.type === "progress") {
+      /* 纵向进度条组 */
+      var n2 = items.length, gap2 = 26;
+      var colW = (a.w - gap2 * (n2 - 1)) / n2;
+      var top = a.y + 30, trackH = Math.max(60, a.h - 92);
+      for (i = 0; i < n2; i++) {
+        var x2 = a.x + i * (colW + gap2), it2 = items[i];
+        var ratio2 = Math.abs(it2.value) / max;
+        var bh = Math.max(3, trackH * ratio2);
+        var tw = Math.max(10, colW * 0.42), tx = x2 + (colW - tw) / 2;
+        sb.push(shape({ name: "ChTrack" + i, geom: "rect", x: tx, y: top, w: tw, h: trackH,
+                        fill: pal.line, alpha: 0.45 }));
+        sb.push(shape({ name: "ChFill" + i, geom: "rect", x: tx, y: top + (trackH - bh), w: tw, h: bh,
+                        fill: pal.accent }));
+        sb.push(shape({ name: "ChVal" + i, x: x2, y: top - 28, w: colW, h: 26, anchor: "b",
+          paras: [para([run(String(it2.value) + d.unit, { sz: 1400, b: true, color: pal.accent, font: pal.fb })],
+            { algn: "ctr", lineSpcPct: 100000, sz: 1400, color: pal.accent, b: true, font: pal.fb })] }));
+        sb.push(shape({ name: "ChLab" + i, x: x2, y: top + trackH + 10, w: colW, h: 44, anchor: "t",
+          paras: [para([run(it2.label, { sz: 1200, color: pal.text, font: pal.fb })],
+            { algn: "ctr", lineSpcPct: 120000, sz: 1200, color: pal.text, font: pal.fb })] }));
+      }
+      footNote(sb, pal, s.note);
+      return;
+    }
+
+    /* 默认：横向条形（标签 / 条 / 数值） */
+    var n1 = items.length, rowGap = 16;
+    var rowH = Math.min(58, (a.h - rowGap * (n1 - 1)) / n1);
+    var totalH = n1 * rowH + rowGap * (n1 - 1);
+    var y0 = a.y + Math.max(0, (a.h - totalH) / 2);
+    var labW = Math.min(210, a.w * 0.28), valW = 78;
+    var trackX = a.x + labW + 18, trackW = Math.max(60, a.w - labW - 18 - valW - 14);
+    for (i = 0; i < n1; i++) {
+      var y1 = y0 + i * (rowH + rowGap), it1 = items[i];
+      var ratio1 = Math.abs(it1.value) / max;
+      var barH = Math.max(8, Math.min(18, rowH * 0.34));
+      var barY = y1 + (rowH - barH) / 2;
+      sb.push(shape({ name: "ChLab" + i, x: a.x, y: barY - 6, w: labW, h: barH + 12, anchor: "ctr",
+        paras: [para([run(it1.label, { sz: 1350, b: true, color: pal.title, font: pal.fb })],
+          { algn: "l", lineSpcPct: 100000, sz: 1350, color: pal.title, b: true, font: pal.fb })] }));
+      sb.push(shape({ name: "ChTrack" + i, geom: "rect", x: trackX, y: barY, w: trackW, h: barH,
+                      fill: pal.line, alpha: 0.45 }));
+      sb.push(shape({ name: "ChFill" + i, geom: "rect", x: trackX, y: barY,
+                      w: Math.max(6, trackW * ratio1), h: barH, fill: pal.accent }));
+      sb.push(shape({ name: "ChVal" + i, x: trackX + trackW + 10, y: barY - 6, w: valW, h: barH + 12, anchor: "ctr",
+        paras: [para([run(String(it1.value) + d.unit, { sz: 1350, b: true, color: pal.accent, font: pal.fb })],
+          { algn: "r", lineSpcPct: 100000, sz: 1350, color: pal.accent, b: true, font: pal.fb })] }));
+    }
+    footNote(sb, pal, s.note);
+  }
+
   var RENDER = {
     cover: layCover, closing: layClosing, bullets: layBullets, two_col: layTwoCol,
     grid: layGrid, kpi: layKpi, timeline: layTimeline, steps: laySteps,
-    compare: layCompare, quote: layQuote, table: layTable, zigzag: layZigzag
+    compare: layCompare, quote: layQuote, table: layTable, zigzag: layZigzag,
+    chart: layChart
   };
 
   /* ---------- 图片落地：封面全幅 / 内页右侧图位 ---------- */
@@ -5882,6 +6002,8 @@ $("#btn-export-pptx").onclick=()=>{
           layout: lay,
           content: (s.content||[]).map(String),
           note: s.note||"",
+          /* 图表数据也要进 pptx，否则导出端画不出图 */
+          chart: (s.chart && typeof s.chart==="object") ? s.chart : undefined,
           /* 配图也要进 pptx：封面用全局封面图，其余页用本页图 */
           img: s.img || (lay==="cover" ? (state.coverImg||"") : "")
         };
