@@ -1422,6 +1422,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.3 — 渐变也抄过来了</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>页面背景的渐变现在会导出了</b>。以前导出只有纯色底，而网页里每一页都是渐变——这是「网页和导出看着不一样」的最后一块大头。现在导出会按网页的实际渐变色标和角度还原。</li>
+          <li>渐变卡片、圆角、阴影也都纳入了转录；没有阴影的版面不会凭空加阴影。</li>
+          <li>最终回归：13 种版式 + 环形图 + 配图，<b>13 页 298 个形状，真 PowerPoint 打开无修复提示</b>。</li>
+          <li><b>修</b>：渐变背景一开始被写到了母版上而不是每页上，导致导出直接报错（bgGrad 未定义）。已改到每页自己的背景。</li>
+        </ul>
         <div class="logver">V2.2 — 圆弧、圆角也抄过来了</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -4164,20 +4172,58 @@ window.XH_POEMS = {
     return '<a:ln w="' + w + '">' + clr + '</a:ln>';
   }
 
+
+  /* 渐变填充：CSS 角度 → OOXML。CSS 0deg 朝上，OOXML 0 表示从左到右。 */
+  function gradFillXml(g) {
+    if (!g || !g.stops || g.stops.length < 2) return null;
+    var s = '<a:gradFill rotWithShape="1"><a:gsLst>';
+    for (var i = 0; i < g.stops.length; i++) {
+      var st = g.stops[i];
+      var pos = Math.round(Math.max(0, Math.min(100, st.pos == null ? 0 : st.pos)) * 1000);
+      s += '<a:gs pos="' + pos + '"><a:srgbClr val="' + st.hex + '"'
+        + (st.alpha != null && st.alpha < 1
+            ? '><a:alpha val="' + Math.round(st.alpha * 100000) + '"/></a:srgbClr>'
+            : '/>')
+        + '</a:gs>';
+    }
+    s += '</a:gsLst>';
+    var ang = Math.round((((g.angle - 90) % 360 + 360) % 360) * 60000);
+    s += '<a:lin ang="' + ang + '" scaled="0"/></a:gradFill>';
+    return s;
+  }
+
+  /* 阴影 */
+  function effectXml(o) {
+    if (!o || !o.shadow) return "";
+    var sh = o.shadow;
+    var a = (sh.alpha == null ? 0.35 : sh.alpha);
+    if (a <= 0.02) return "";
+    return '<a:effectLst><a:outerShdw blurRad="' + emu(Math.max(0, sh.blur || 0))
+      + '" dist="' + emu(Math.max(0, sh.dist || 0))
+      + '" dir="' + Math.round((sh.dir || 0) * 60000)
+      + '" algn="ctr" rotWithShape="0"><a:srgbClr val="' + sh.hex
+      + '"><a:alpha val="' + Math.round(a * 100000) + '"/></a:srgbClr></a:outerShdw></a:effectLst>';
+  }
+
   function shape(o) {
     var geom = o.geom || "rect";
-    var fill = o.fill
-      ? '<a:solidFill><a:srgbClr val="' + o.fill + '"'
+    var fill;
+    if (o.grad) {
+      fill = gradFillXml(o.grad) || '<a:noFill/>';
+    } else if (o.fill) {
+      fill = '<a:solidFill><a:srgbClr val="' + o.fill + '"'
         + (o.alpha != null ? '><a:alpha val="' + Math.round(o.alpha * 100000) + '"/></a:srgbClr>' : '/>')
-        + '</a:solidFill>'
-      : '<a:noFill/>';
+        + '</a:solidFill>';
+    } else {
+      fill = '<a:noFill/>';
+    }
     var xfrm = '<a:xfrm' + (o.rot ? ' rot="' + Math.round(o.rot * 60000) + '"' : '')
       + '><a:off x="' + emu(o.x) + '" y="' + emu(o.y) + '"/>'
       + '<a:ext cx="' + emu(Math.max(1, o.w)) + '" cy="' + emu(Math.max(1, o.h)) + '"/></a:xfrm>';
     var s = '<p:sp><p:nvSpPr><p:cNvPr id="' + nid() + '" name="' + esc(o.name || "Shape") + '"/>'
       + '<p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>'
       + '<p:spPr>' + xfrm + '<a:prstGeom prst="' + geom + '">' + avLst(o.adj) + '</a:prstGeom>'
-      + fill + lineXml(o) + '</p:spPr>';
+      + fill + lineXml(o) + effectXml(o) + '</p:spPr>';
     if (o.paras) {
       var ps = o.paras.length ? o.paras.join("") : emptyPara();
       s += '<p:txBody>' + bodyPrXml(o) + '<a:lstStyle/>' + ps + '</p:txBody>';
@@ -4266,7 +4312,7 @@ window.XH_POEMS = {
     return out;
   }
 
-  function slideXml(pal, shapes, anim) {
+  function slideXml(pal, shapes, anim, bgGrad) {
     /* 切换效果：放映时逐页淡入。元素顺序必须严格是 cSld → transition → clrMapOvr，
        放错位置 PowerPoint 会判定文件损坏。 */
     var trans = (anim === false) ? ""
@@ -4274,7 +4320,7 @@ window.XH_POEMS = {
     return DECL
       + '<p:sld ' + NS + '>'
       + '<p:cSld>'
-      + '<p:bg><p:bgPr><a:solidFill><a:srgbClr val="' + pal.bg + '"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'
+      + '<p:bg><p:bgPr>' + (gradFillXml(bgGrad) || ('<a:solidFill><a:srgbClr val="' + pal.bg + '"/></a:solidFill>')) + '<a:effectLst/></p:bgPr></p:bg>'
       + '<p:spTree>' + GRP + shapes.join("") + '</p:spTree>'
       + '</p:cSld>'
       + trans
@@ -5037,7 +5083,8 @@ window.XH_POEMS = {
         }
         sb.push(shape({ name: "Box" + i, geom: geom, adj: adj, x: e.x, y: e.y,
                         w: Math.max(1, e.w), h: Math.max(1, e.h),
-                        fill: e.fill, alpha: (e.fillAlpha == null ? 1 : e.fillAlpha) }));
+                        fill: e.fill, alpha: (e.fillAlpha == null ? 1 : e.fillAlpha),
+                        grad: e.grad || null, shadow: e.shadow || null }));
       } else if (e.border) {
         sb.push(shape({ name: "Line" + i, geom: "rect", x: e.x, y: e.y,
                         w: Math.max(1, e.w), h: Math.max(1, e.borderW || 1),
@@ -5352,7 +5399,14 @@ window.XH_POEMS = {
           if (dm) shapes = decoShapes(dm, pal).concat(shapes);
         }
       } catch (e) {}
-      slideXmls.push(slideXml(pal, shapes, opts.anim));
+      /* 本页背景渐变（转录表里 kind=bgGrad 的那条） */
+      var bgG = null;
+      if (tbl) {
+        for (var bi2 = 0; bi2 < tbl.length; bi2++) {
+          if (tbl[bi2] && tbl[bi2].kind === "bgGrad") { bgG = tbl[bi2].grad; break; }
+        }
+      }
+      slideXmls.push(slideXml(pal, shapes, opts.anim, bgG));
     }
 
     /* ---- 4) presentation.xml.rels ---- */
@@ -5818,6 +5872,74 @@ window.XH_POEMS = {
 (function (w) {
   var DEFAULT_W = 960, DEFAULT_H = 540;
 
+
+  /* #RRGGBB / #RGB / rgb() / rgba() → {hex, alpha} */
+  function anyColor(s) {
+    if (!s) return null;
+    s = String(s).trim();
+    if (s.charAt(0) === "#") {
+      var h = s.slice(1);
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      if (h.length !== 6) return null;
+      return { hex: h.toUpperCase(), alpha: 1 };
+    }
+    return rgbToHex(s);
+  }
+
+  /* linear-gradient(160deg, A, B 55%, C) → {angle, stops:[{hex,alpha,pos}]} */
+  function parseGradient(bi) {
+    var s = String(bi || "");
+    var m = s.match(/linear-gradient\(\s*(-?[\d.]+)deg\s*,([\s\S]+)\)/);
+    if (!m) return null;
+    var angle = parseFloat(m[1]);
+    var body = m[2];
+    /* 按顶层逗号切分（括号内的逗号不算） */
+    var parts = [], depth = 0, cur = "";
+    for (var i = 0; i < body.length; i++) {
+      var ch = body.charAt(i);
+      if (ch === "(") depth++;
+      else if (ch === ")") depth--;
+      if (ch === "," && depth === 0) { parts.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    if (cur.trim()) parts.push(cur);
+    var stops = [];
+    for (var j = 0; j < parts.length; j++) {
+      var p = parts[j].trim();
+      var cm = p.match(/(rgba?\([^)]*\)|#[0-9a-fA-F]{3,8})/);
+      if (!cm) continue;
+      var col = anyColor(cm[1]);
+      if (!col) continue;
+      var pm = p.match(/([\d.]+)%\s*$/);
+      stops.push({ hex: col.hex, alpha: col.alpha, pos: pm ? parseFloat(pm[1]) : null });
+    }
+    if (stops.length < 2) return null;
+    /* 补齐未写位置的中点 */
+    if (stops[0].pos == null) stops[0].pos = 0;
+    if (stops[stops.length - 1].pos == null) stops[stops.length - 1].pos = 100;
+    for (var k = 1; k < stops.length - 1; k++) {
+      if (stops[k].pos == null) stops[k].pos = (stops[k - 1].pos + stops[k + 1].pos) / 2;
+    }
+    return { angle: angle, stops: stops };
+  }
+
+  /* box-shadow "rgba(0,0,0,.4) 0px 8px 24px 0px" → {blur,dist,dir,hex,alpha} */
+  function parseShadow(bs) {
+    var s = String(bs || "").trim();
+    if (!s || s === "none") return null;
+    var col = s.match(/(rgba?\([^)]*\)|#[0-9a-fA-F]{3,8})/);
+    var nums = s.match(/-?[\d.]+px/g) || [];
+    if (nums.length < 2) return null;
+    var ox = parseFloat(nums[0]), oy = parseFloat(nums[1]);
+    var blur = nums[2] ? parseFloat(nums[2]) : 0;
+    var c2 = col ? anyColor(col[1]) : { hex: "000000", alpha: 0.35 };
+    if (!c2) c2 = { hex: "000000", alpha: 0.35 };
+    /* 方向：OOXML 用 1/60000 度，0 = 向右，顺时针 */
+    var dir = Math.round(Math.atan2(oy, ox) * 180 / Math.PI);
+    if (dir < 0) dir += 360;
+    return { blur: blur, dist: Math.sqrt(ox * ox + oy * oy), dir: dir, hex: c2.hex, alpha: c2.alpha };
+  }
+
   function rgbToHex(s) {
     if (!s) return null;
     var m = String(s).match(/rgba?\(([^)]+)\)/);
@@ -5921,7 +6043,6 @@ window.XH_POEMS = {
       var bg = rgbToHex(s.backgroundColor);
       var bt = parseFloat(s.borderTopWidth) || 0;
       var bc = bt > 0 ? rgbToHex(s.borderTopColor) : null;
-      if (!bg && !bc) continue;
       var r2 = e.getBoundingClientRect();
       var box = rel(r2);
       if (box.w < 1 || box.h < 0.5) continue;
@@ -5930,11 +6051,16 @@ window.XH_POEMS = {
         continue;
       }
       var rad = parseFloat(s.borderTopLeftRadius) || 0;
+      var grad = parseGradient(s.backgroundImage);
+      var shad = parseShadow(s.boxShadow);
+      if (!bg && !bc && !grad) continue;
       out.push({
         kind: "rect", x: box.x, y: box.y, w: box.w, h: box.h,
         fill: bg ? bg.hex : null, fillAlpha: bg ? bg.alpha : 0,
         border: bc ? bc.hex : null, borderW: bt ? +(bt * ky).toFixed(2) : 0,
-        radius: rad ? +(rad * ky).toFixed(2) : 0
+        radius: rad ? +(rad * ky).toFixed(2) : 0,
+        grad: grad || null,
+        shadow: shad && shad.alpha > 0.02 ? shad : null
       });
     }
 
@@ -5973,6 +6099,13 @@ window.XH_POEMS = {
         });
       }
     }
+
+    /* 页面整体背景（画在最底层） */
+    var pcs = w.getComputedStyle(pageEl);
+    var pgrad = parseGradient(pcs.backgroundImage);
+    var pbg = anyColor(pcs.backgroundColor);
+    if (pgrad) out.unshift({ kind: "bgGrad", grad: pgrad });
+    else if (pbg) out.unshift({ kind: "bg", fill: pbg.hex, alpha: pbg.alpha });
 
     if (!hadClass) pageEl.classList.remove("xh-measuring");
     return out;
