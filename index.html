@@ -1420,6 +1420,13 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V1.8 — 导出里也有装饰了</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>导出的 .pptx 现在带装饰</b>：网页端 12 套模板各有一个视觉母题，之前导出的是纯版面。现在导出时按同一套母题画图形——图纸网格、角标、数据条、圆环、星点等，<b>和你在网页里看到的一致</b>。</li>
+          <li><b>装饰画在内容之下</b>，只用低透明度，不压字；除网格纹理外，其余母题一律只落在页面四周的空白带。</li>
+          <li><b>顺手修了一个我自己的失误</b>：上一轮替换导出模块时，替换区间把夹在中间的装饰库一并删掉了（导致母题失效）。已恢复，并把从样式里反抽的 CSS 存回 dev 目录。</li>
+        </ul>
         <div class="logver">V1.7 — 开始画图了</div>
         <div class="logdate">2026-10-25</div>
         <ul class="loglist">
@@ -3830,6 +3837,87 @@ window.XH_POEMS = {
     return s + '</p:sp>';
   }
 
+
+  /* ================= 装饰母题（与网页端 12 套一一对应） =================
+     只落在页面四周的空白带（右侧 62pt / 底部 34pt / 角落），不进入正文安全区。
+     全部用填充形状 + alpha，避免依赖描边；alpha 很低，不抢戏。 */
+  function decoShapes(motif, pal) {
+    var W = 960, H = 540, out = [];
+    var c = pal.accent || pal.title;
+    var RX = W - 62, BY = H - 34;          // 右侧带起点 / 底部带起点
+    function rect(n, x, y, w, h, al) {
+      if (w <= 0 || h <= 0) return;
+      out.push(shape({ name: n, geom: "rect", x: x, y: y, w: w, h: h, fill: c, alpha: al }));
+    }
+    function ell(n, x, y, w, h, al) {
+      out.push(shape({ name: n, geom: "ellipse", x: x, y: y, w: w, h: h, fill: c, alpha: al }));
+    }
+    switch (motif) {
+      case "grid":
+        for (var i = 1; i < 8; i++) rect("DecoGV" + i, W * i / 8, 0, 0.7, H, 0.055);
+        for (var j = 1; j < 5; j++) rect("DecoGH" + j, 0, H * j / 5, W, 0.7, 0.055);
+        break;
+      case "starfield":
+        ell("DecoStar1", RX + 6, 54, 3, 3, 0.5);
+        ell("DecoStar2", RX + 30, 96, 2, 2, 0.35);
+        ell("DecoStar3", RX + 16, 150, 2.5, 2.5, 0.42);
+        ell("DecoStar4", RX + 40, 210, 2, 2, 0.3);
+        out.push(shape({ name: "DecoHalo", geom: "donut", x: RX - 10, y: 240, w: 76, h: 76, fill: c, alpha: 0.12 }));
+        break;
+      case "moon":
+        ell("DecoMoon", RX - 6, 74, 66, 66, 0.16);
+        ell("DecoMoon2", RX + 8, 88, 66, 66, 0.10);
+        break;
+      case "ridge":
+        out.push(shape({ name: "DecoRidge1", geom: "rtTriangle", x: W - 150, y: BY - 62, w: 78, h: 62, fill: c, alpha: 0.16 }));
+        out.push(shape({ name: "DecoRidge2", geom: "rtTriangle", x: W - 104, y: BY - 40, w: 56, h: 40, fill: c, alpha: 0.22 }));
+        out.push(shape({ name: "DecoRidge3", geom: "rtTriangle", x: W - 70, y: BY - 26, w: 34, h: 26, fill: c, alpha: 0.28 }));
+        break;
+      case "seal":
+        rect("DecoSealT", RX + 4, 80, 44, 1.6, 0.5);
+        rect("DecoSealB", RX + 4, 122, 44, 1.6, 0.5);
+        rect("DecoSealL", RX + 4, 80, 1.6, 44, 0.5);
+        rect("DecoSealR", RX + 46, 80, 1.6, 44, 0.5);
+        break;
+      case "mist":
+        ell("DecoMist1", RX - 24, 60, 92, 46, 0.14);
+        ell("DecoMist2", RX - 6, 128, 74, 38, 0.11);
+        break;
+      case "wave":
+        out.push(shape({ name: "DecoWave1", geom: "wave", x: -40, y: BY - 26, w: W + 80, h: 26, fill: c, alpha: 0.12 }));
+        out.push(shape({ name: "DecoWave2", geom: "wave", x: -40, y: BY - 12, w: W + 80, h: 26, fill: c, alpha: 0.09 }));
+        break;
+      case "diagonal":
+        out.push(shape({ name: "DecoDiag", geom: "rect", x: W - 74, y: -30, w: 26, h: 190, fill: c, alpha: 0.16, rot: -18 }));
+        out.push(shape({ name: "DecoDiag2", geom: "rect", x: W - 40, y: -30, w: 12, h: 150, fill: c, alpha: 0.22, rot: -18 }));
+        break;
+      case "paper":
+        out.push(shape({ name: "DecoFold", geom: "rtTriangle", x: W - 58, y: H - 58, w: 58, h: 58, fill: c, alpha: 0.13 }));
+        rect("DecoEdge", W - 120, 70, 1.1, 74, 0.35);
+        break;
+      case "bars":
+        rect("DecoBar1", RX + 2, 150, 9, 40, 0.30);
+        rect("DecoBar2", RX + 16, 128, 9, 62, 0.24);
+        rect("DecoBar3", RX + 30, 162, 9, 28, 0.36);
+        rect("DecoBar4", RX + 44, 112, 9, 78, 0.20);
+        break;
+      case "rings":
+        out.push(shape({ name: "DecoRing1", geom: "donut", x: RX - 12, y: 62, w: 74, h: 74, fill: c, alpha: 0.16 }));
+        ell("DecoRing2", RX + 22, 148, 34, 34, 0.12);
+        ell("DecoRing3", RX + 30, 156, 18, 18, 0.30);
+        break;
+      case "tape":
+        out.push(shape({ name: "DecoTape", geom: "rect", x: W - 96, y: 78, w: 62, h: 22, fill: c, alpha: 0.20, rot: -8 }));
+        rect("DecoGrid1", RX + 4, 124, 14, 0.9, 0.30);
+        rect("DecoGrid2", RX + 4, 140, 14, 0.9, 0.30);
+        rect("DecoGrid3", RX + 4, 156, 14, 0.9, 0.30);
+        break;
+      default:
+        rect("DecoRule", W - 96, H - 46, 60, 1.4, 0.35);
+    }
+    return out;
+  }
+
   function slideXml(pal, shapes) {
     return DECL
       + '<p:sld ' + NS + '>'
@@ -4699,6 +4787,13 @@ window.XH_POEMS = {
         shapes.push(shape({ name: "Fallback", x: a2.x, y: a2.y, w: a2.w, h: a2.h, anchor: "t", paras: paras }));
         footNote(shapes, pal, sl && sl.note);
       }
+      /* 装饰画在内容之下（spTree 顺序 = 层叠顺序，先入者在后） */
+      try {
+        if (opts.deco !== false) {
+          var dm = String(opts.decoMotif || "").replace(/^motif-/, "");
+          if (dm) shapes = decoShapes(dm, pal).concat(shapes);
+        }
+      } catch (e) {}
       slideXmls.push(slideXml(pal, shapes));
     }
 
@@ -4799,7 +4894,7 @@ window.XH_POEMS = {
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
 
 
-/* ============ 装饰系统 ============ */
+/* ============ 装饰系统（12 母题 + 图标库） ============ */
 /* ============================================================================
    星火PPT · 装饰库 decorations.js
    ----------------------------------------------------------------------------
@@ -4824,8 +4919,8 @@ window.XH_POEMS = {
     "moon",       // t2  月白清光
     "ridge",      // t3  青峰林海
     "seal",       // t4  鎏金案牍
-    "mist",       // t5  琥珀长夜
-    "wave",       // t6  沧海晨光
+    "mist",       // t5  紫雾星海
+    "wave",       // t6  沧海深蓝
     "grid",       // t7  深蓝图谱
     "diagonal",   // t8  墨绿咨询
     "paper",      // t9  米白学术
@@ -5732,6 +5827,8 @@ $("#btn-export-pptx").onclick=()=>{
       })
     };
     const opts = readThemeColors(state.template);
+    opts.decoMotif = (decoClsOf(state.template)||"").replace(/^motif-/,"");
+    opts.deco = true;
     const bytes = XH_PPTX.build(deck, opts);      /* 同步返回 Uint8Array */
     const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
     const a=document.createElement("a");
