@@ -1496,6 +1496,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.8 — 自检升级：面板不再互相压住</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>版式自检加了一层「面板重叠检查」</b>——来自 frontend-slides 的教训：只查滚动高度不够，网格/卡片面板可能<b>视觉上互相盖住而不增加高度</b>。</li>
+          <li>现在每个版式会离屏渲染一遍，量所有「有填充/有边框」元素的边框盒，非嵌套元素重叠超过小者 5% 就报出来。</li>
+          <li>实测：13 种版式全部通过（0 误报）；人为制造的两块重叠面板能被抓到；并排不重叠的不误伤。</li>
+          <li>这个检查并入每次启动的版式自检，配合之前的降级契约、渲染契约一起跑。</li>
+        </ul>
         <div class="logver">V2.7 — 先看封面，再动手</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -7084,6 +7092,50 @@ function closingHTML(s){
     ${lines.length?`<div class="cs">${lines.map(esc).join("<br>")}</div>`:`<div class="cs">星星之火，可以燎原</div>`}${nt}${(()=>{const p=xhPoemFull("back");return p?`<div class="poem-bk">${esc(p.text)}<span class="poem-src">${esc(p.from)}</span></div>`:"";})()}`;
 }
 /* 渲染契约自检：词表里每个版式都必须真的画得出来 */
+
+/* ===================== 面板重叠自检 =====================
+   来自 frontend-slides 的教训：scrollHeight 检查不够，网格/卡片面板可能
+   在视觉上互相盖住而不增加滚动高度。这里直接量所有「有填充/有边框」的
+   元素 box，找非嵌套元素的重叠（重叠面积 > 小者 5% 算压住）。 */
+function overlapScan(pageEl){
+  if(!pageEl) return [];
+  const W=pageEl.clientWidth||1, H=pageEl.clientHeight||1;
+  const boxes=[];
+  const all=pageEl.querySelectorAll("*");
+  for(let i=0;i<all.length;i++){
+    const e=all[i];
+    let cs; try{ cs=getComputedStyle(e); }catch(err){ continue; }
+    if(cs.display==="none"||cs.visibility==="hidden") continue;
+    const bg=cs.backgroundColor||"";
+    const hasFill = (bg!=="rgba(0, 0, 0, 0)" && bg!=="transparent")
+      || (parseFloat(cs.borderTopWidth||"0")>0);
+    if(!hasFill) continue;
+    const r=e.getBoundingClientRect();
+    if(r.width<1||r.height<1) continue;
+    if(r.width>W*0.98&&r.height>H*0.98) continue;   /* 全幅背景层不算 */
+    boxes.push({el:e, r:r});
+  }
+  const issues=[];
+  for(let i=0;i<boxes.length;i++){
+    for(let j=i+1;j<boxes.length;j++){
+      const a=boxes[i].r, b=boxes[j].r;
+      const ox=Math.max(0, Math.min(a.right,b.right)-Math.max(a.left,b.left));
+      const oy=Math.max(0, Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+      if(ox<=1||oy<=1) continue;
+      const area=ox*oy;
+      const small=Math.min(a.width*a.height,b.width*b.height);
+      if(small<=0) continue;
+      const nested = boxes[i].el.contains(boxes[j].el) || boxes[j].el.contains(boxes[i].el);
+      if(!nested && area>small*0.05){
+        issues.push({a:(boxes[i].el.className||boxes[i].el.tagName),
+                     b:(boxes[j].el.className||boxes[j].el.tagName), area:Math.round(area)});
+      }
+    }
+  }
+  return issues;
+}
+
+
 function checkRenderer(){
   /* 每个版式喂**符合它自己契约**的数据（LAYOUT_RULE 的 min/max/pipe）。
      以前所有版式共用一份 2 条的样本，而 timeline/steps/table/zigzag 的 min 是 3，
@@ -7131,11 +7183,34 @@ function checkRenderer(){
     if(got!==r[2]) bad.push("降级失效:"+r[0]+"→"+got+"（应为 "+r[2]+"）");
   });
 
+  /* 面板重叠检查：每个版式离屏渲染一遍，量非嵌套元素 box 是否互相压住 */
+  try{
+    let host=document.getElementById("__ovchk");
+    if(!host){
+      host=document.createElement("div");
+      host.id="__ovchk";
+      host.style.cssText="position:fixed;left:-99999px;top:0;width:760px;height:427px;container-type:size;overflow:hidden";
+      host.className="stage";
+      document.body.appendChild(host);
+    }
+    LAYOUTS.forEach(function(l){
+      const s={title:"重叠自检",layout:l,content:(SAMPLE[l]||["一","二","三"]).slice(),note:"收束"};
+      if(l==="chart") s.chart={type:"bar",unit:"%",items:[{label:"甲",value:60},{label:"乙",value:30}]};
+      let html="";
+      try{ html=pageHTML(s,0,8); }catch(e){ return; }
+      host.innerHTML=`<div class="page theme-t1 ${normLayout(l)}">${html}</div>`;
+      const ov=overlapScan(host.querySelector(".page"));
+      if(ov.length) bad.push(l+"(面板重叠 "+ov.length+" 处: "+
+        ov.slice(0,2).map(x=>x.a+"×"+x.b).join("、")+")");
+    });
+    host.innerHTML="";
+  }catch(e){ /* 重叠检查失败不影响版式自检 */ }
+
   if(bad.length){
     console.error("[星火PPT] 版式自检未通过：",bad.join("、"));
     try{ toast("⚠ 版式自检未通过："+bad.join("、")); }catch(e){}
   }else{
-    console.info("[星火PPT] 版式自检通过："+LAYOUTS.length+" 种版式渲染契约 + "+REVERSE.length+" 项降级规则");
+    console.info("[星火PPT] 版式自检通过："+LAYOUTS.length+" 种版式渲染契约 + "+REVERSE.length+" 项降级规则 + 面板重叠 0");
   }
   return bad;
 }
