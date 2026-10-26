@@ -469,6 +469,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   align-items:center;justify-content:center;background:rgba(8,10,20,.62);color:var(--gold);
   font-size:2.2cqw;letter-spacing:.08em;z-index:50;backdrop-filter:blur(2px)}
 
+/* ---- 用途/密度 ---- */
+.den-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.den{padding:8px 4px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2);
+  color:var(--ink);font-size:12px;font-family:inherit;cursor:pointer;line-height:1.4;transition:.15s}
+.den i{display:block;font-style:normal;font-size:10.5px;color:var(--ink2);margin-top:2px}
+.den:hover{border-color:var(--gold)}
+.den.on{background:rgba(242,198,109,.14);border-color:var(--gold);color:var(--gold)}
+.den.on i{color:var(--gold)}
+
 /* 放映 */
 .overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
 .overlay.on{display:block}
@@ -1411,6 +1420,13 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
         <div class="api-note">🔒 生图 Key 同样只在当前标签页内有效。接口需兼容 <code>/images/generations</code>。生图较慢（约 10~30 秒），只在勾选时才会调用。</div>
       </div>
 
+      <div class="label">用途（决定每页的密度）</div>
+      <div class="den-row" id="denrow">
+        <button type="button" class="den" data-den="speak" onclick="setDensity('speak')">演讲<br><i>每页少而大</i></button>
+        <button type="button" class="den" data-den="read" onclick="setDensity('read')">阅读<br><i>每页多而全</i></button>
+        <button type="button" class="den on" data-den="auto" onclick="setDensity('auto')">通用<br><i>自动判断</i></button>
+      </div>
+
       <div class="label">背景音乐（可选）</div>
       <div id="bgmSlot"></div>
 
@@ -1462,6 +1478,15 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.6 — 先告诉它你讲给谁听</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>新增「用途」开关：演讲 / 阅读 / 通用</b>。生成前选一下，生成策略就会跟着变——借鉴了开源 skill <b>frontend-slides</b>（GitHub 3.1 万 star）的「密度模式」：</li>
+          <li><b>演讲</b>（低密度）：一页一个想法、大标题、留白多、每页只放 1~3 条要点，宁可多拆几页。</li>
+          <li><b>阅读</b>（高密度）：每页自包含，可以排 4~8 条或上网格表格，信息要全但层级清楚。</li>
+          <li><b>通用</b>：维持现状（每页 3~5 条）。</li>
+          <li>选择会同时作用于整份生成与单页重生成；纯前端模式与本地后端模式都生效。</li>
+        </ul>
         <div class="logver">V2.5 — 生成中可以停下来，单页也能重做</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -1722,7 +1747,7 @@ const SKILLS=[
   {k:"general",n:"通用",d:"任何内容"},
 ];
 
-let state={doctor:null,slides:[],template:"t1",skill:"report",current:0,refs:[],refTexts:[]};
+let state={doctor:null,slides:[],template:"t1",skill:"report",current:0,refs:[],refTexts:[],density:"auto"};
 let generating=false,ignoreConfirm=false;
 const KEY="xinghuoPPT_v1";
 
@@ -1739,6 +1764,19 @@ function blueprintText(sk){
       return (i+1) + ". " + p.p + (p.m ? " —— " + p.m : "");
     }).join("\n");
   }catch(e){ return "（按通用叙事顺序组织）"; }
+}
+
+
+/* ---- 用途/密度：speak 演讲低密度 / read 阅读高密度 / auto 自动 ---- */
+function setDensity(k){
+  state.density=k;
+  document.querySelectorAll("#denrow .den").forEach(b=>b.classList.toggle("on",b.dataset.den===k));
+}
+function densityRule(){
+  const d=state.density||"auto";
+  if(d==="speak") return "【密度：演讲型】一页一个想法：大标题、留白多、每页 1~3 条要点，宁可多拆几页也不堆字。";
+  if(d==="read") return "【密度：阅读型】每页自包含：可以排 4~8 条要点或用网格/表格，信息要全，但层级要清楚，不许变成文档粘贴。";
+  return "【密度：通用】一页 3~5 条要点，标题是结论，留白适中。";
 }
 
 function renderSkills(){
@@ -2205,6 +2243,7 @@ function buildUserPromptJS(text, skillKey, pagesHint, refText){
   const s = SKILL_META[skillKey] || SKILL_META.general;
   const parts = ["应用方向：" + s.name + "。\n\n请根据下面内容生成一份 PPT：\n\n" + text];
   if (refText) parts.push("\n\n【用户提供的参考材料（可引用）】：\n" + String(refText).slice(0, 20000));
+  parts.push("\n\n" + densityRule());
   if (pagesHint && pagesHint >= 3) {
     parts.push("\n\n【页数硬性】必须正好 " + pagesHint + " 页（含封面与封底），不多也不少。");
       parts.push("\n\n【本方向的页序骨架】按这个顺序走，每页按要求把话说实：\n" + blueprintText(sk));
@@ -6234,6 +6273,7 @@ async function generate(){
 
     const body={text,skill:state.skill,template:state.template,pages,
       refText:state.refTexts.join("\n\n---\n\n"),
+      density:state.density||"auto",
       apiKey,baseUrl,model};
     saveApiPrefs(apiKey,model,baseUrl);
 
@@ -6415,7 +6455,8 @@ async function regeneratePage(i){
   try{ if(bgm&&bgm.duckOn) bgm.duckOn(); }catch(e){}
 
   const body={text:state.lastSource,skill:state.skill,template:state.template,
-    refText:(state.refTexts||[]).join("\n\n---\n\n"),pageIndex:i,
+    refText:(state.refTexts||[]).join("\n\n---\n\n"),
+    density:state.density||"auto",pageIndex:i,
     outline:state.slides.map(x=>({title:x.title||""})),
     currentPage:{title:state.slides[i].title||"",layout:state.slides[i].layout||"",content:state.slides[i].content||[]},
     apiKey,baseUrl,model};
