@@ -478,6 +478,22 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .den.on{background:rgba(242,198,109,.14);border-color:var(--gold);color:var(--gold)}
 .den.on i{color:var(--gold)}
 
+/* ---- 封面样张先选后做 ---- */
+.covers-btn{width:100%;margin-top:8px;padding:9px 12px;border-radius:9px;cursor:pointer;
+  font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--panel2);
+  border:1px solid var(--line2);transition:.18s}
+.covers-btn:hover{border-color:var(--gold);color:var(--gold)}
+.covers-btn:disabled{opacity:.5;cursor:not-allowed}
+.coverpick{display:none;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.coverpick.show{display:grid}
+.cpick{border:2px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;transition:.18s;background:var(--panel2)}
+.cpick:hover{border-color:var(--gold)}
+.cpick.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-deep)}
+.cpick .cph{width:100%;aspect-ratio:16/9;container-type:size;overflow:hidden;position:relative}
+.cpick .cph .page{position:absolute;inset:0}
+.cpick .cpn{text-align:center;font-size:11px;color:var(--ink2);padding:4px 2px}
+.xh-no-anim *,.xh-no-anim{animation:none!important;transition:none!important}
+
 /* 放映 */
 .overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
 .overlay.on{display:block}
@@ -1432,6 +1448,8 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 
       <button class="enh-btn" id="enh-btn">✨ 先帮我优化提示词</button>
       <button class="gen-btn" id="genbtn">✦ 生成 PPT</button>
+      <button class="covers-btn" id="btn-covers" type="button">◈ 先看 3 种封面风格</button>
+      <div class="coverpick" id="coverpick"></div>
       <div class="api-state" id="apistate"><span class="dot" id="apidot"></span><span id="apitext">检查服务中…</span></div>
     </div>
 
@@ -1478,6 +1496,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.7 — 先看封面，再动手</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>新增「先看 3 种封面风格」</b>（借鉴开源 skill frontend-slides 的默认流程）：点一下，先让模型只提炼一句结论式主标题和副标题，再用 <b>三套气质差异最大的模板</b>（深蓝图谱 / 米白学术 / 黑金财报）各渲染一张真实封面给你看。</li>
+          <li>点选其中一张 → 模板自动锁定 → 再点「生成 PPT」就按这个风格整套生成。不用等整份做完才发现风格不对。</li>
+          <li>提炼封面只花一次很小额的请求（约 300 token），不满意可以反复试。</li>
+          <li>纯前端模式与本地后端模式都可用。</li>
+        </ul>
         <div class="logver">V2.6 — 先告诉它你讲给谁听</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -6585,6 +6611,89 @@ function directRegenerate(body, signal){
     const i=(typeof state.current==="number")?state.current:0;
     regeneratePage(i);
   };
+})();
+
+
+/* ===================== 封面样张先选后做 ===================== */
+const COVER_TRIO = ["t7","t9","t10"];   /* 气质差异最大的三套：深蓝图纸 / 米白学术 / 黑金 */
+function renderCoverPreview(el, tpl, slide){
+  el.innerHTML=`<div class="page ${tpl.cls} cover xh-no-anim">${pageHTML(slide,0,3)}</div>`;
+}
+async function previewCovers(){
+  const text=((state.genText||"").trim()||$("#prompt").value.trim());
+  if(!text){ toast("请先输入要生成的内容"); return; }
+  if(generating){ toast("正在生成中，请先停止"); return; }
+  const apiKey=$("#apikey").value.trim();
+  if(!apiKey){ toast("请先填写你的 API Key"); return; }
+  let model=$("#model").value;
+  if(model==="__custom__"){ const cus=$("#model-custom"); model=cus?cus.value.trim():""; }
+  if(!model){ toast("请填写自定义模型名"); return; }
+  const baseUrl=$("#baseUrl").value.trim();
+  clearError();
+  const btn=$("#btn-covers");
+  if(btn){ btn.disabled=true; btn.textContent="正在提炼封面…"; }
+  const body={text,skill:state.skill,template:state.template,pages:0,
+    refText:(state.refTexts||[]).join("\n\n---\n\n"),
+    density:state.density||"auto",coverOnly:true,apiKey,baseUrl,model};
+  try{
+    const ctrl=new AbortController(); genAbort=ctrl;
+    const res = state.backend
+      ? await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(body),signal:ctrl.signal})
+      : directGenerate(body,ctrl.signal);
+    if(!res.ok){ const j=await res.json().catch(()=>null);
+      const e=new Error((j&&j.error)||("服务器错误 "+res.status)); e.status=res.status; throw e; }
+    const reader=res.body.getReader(); const dec=new TextDecoder();
+    let buf="", acc="", finished=false, srvErr=null;
+    while(!finished){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf("\n\n"))!==-1){
+        const evt=buf.slice(0,idx); buf=buf.slice(idx+2);
+        const dataLine=evt.split("\n").find(l=>l.startsWith("data:"));
+        const evtName=(evt.split("\n").find(l=>l.startsWith("event:"))||"").slice(6).trim();
+        if(!dataLine) continue;
+        let payload; try{ payload=JSON.parse(dataLine.slice(5).trim()); }catch(e){ continue; }
+        if(evtName==="chunk") acc+=payload;
+        else if(evtName==="done") finished=true;
+        else if(evtName==="error"){ srvErr=payload; finished=true; }
+      }
+    }
+    if(srvErr) throw new Error(srvErr);
+    const cover=extractSingleSlide(acc) || {};
+    const title=(cover.title||"").trim();
+    if(!title) throw new Error("没能提炼出封面标题，请重试");
+    const subtitle=(cover.subtitle||"").trim();
+    state.lastSource=text;
+    /* 渲染 3 张封面预览 */
+    const slide={title:title,layout:"cover",content:subtitle?[subtitle]:[],note:""};
+    const box=$("#coverpick");
+    const names=TPL.filter(t=>COVER_TRIO.includes(t.id));
+    box.innerHTML=names.map(t=>`<div class="cpick" data-t="${t.id}"><div class="cph" id="cph_${t.id}"></div><div class="cpn">${t.name}</div></div>`).join("");
+    names.forEach(t=>{ renderCoverPreview($("#cph_"+t.id), t, slide); });
+    box.classList.add("show");
+    box.querySelectorAll(".cpick").forEach(el=>el.onclick=()=>{
+      box.querySelectorAll(".cpick").forEach(x=>x.classList.remove("on"));
+      el.classList.add("on");
+      state.template=el.dataset.t;
+      renderTpls();
+      toast("已选「"+ (TPL.find(t=>t.id===state.template)||{}).name +"」，点「生成 PPT」继续");
+    });
+    box.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }catch(e){
+    if(e&&e.name==="AbortError") toast("已取消封面预览");
+    else{ showError(e); toast("封面提炼失败："+((e&&e.message)||e)); }
+  }finally{
+    genAbort=null;
+    if(btn){ btn.disabled=false; btn.textContent="◈ 先看 3 种封面风格"; }
+  }
+}
+
+
+(function(){
+  const b=$("#btn-covers");
+  if(b) b.onclick=previewCovers;
 })();
 
 function parseStreaming(raw){
