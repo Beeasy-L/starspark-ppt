@@ -2280,9 +2280,9 @@ function buildUserPromptJS(text, skillKey, pagesHint, refText){
   parts.push("\n\n" + densityRule());
   if (pagesHint && pagesHint >= 3) {
     parts.push("\n\n【页数硬性】必须正好 " + pagesHint + " 页（含封面与封底），不多也不少。");
-      parts.push("\n\n【本方向的页序骨架】按这个顺序走，每页按要求把话说实：\n" + blueprintText(sk));
+      parts.push("\n\n【本方向的页序骨架】按这个顺序走，每页按要求把话说实：\n" + blueprintText(skillKey));
   } else {
-    parts.push("\n\n【本方向的页序骨架】按这个顺序走：\n" + blueprintText(sk));
+    parts.push("\n\n【本方向的页序骨架】按这个顺序走：\n" + blueprintText(skillKey));
   }
   return parts.join("\n\n");
 }
