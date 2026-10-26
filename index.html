@@ -6766,7 +6766,10 @@ function buildDeck(doctor){
   const created=!state.doctor;
   const slides=(doctor.slides||[]).map(s=>({
     title:s.title||"",layout:(s.layout||"bullets").toLowerCase(),note:s.note?String(s.note):"",
-    content:Array.isArray(s.content)?s.content.filter(x=>x!==null&&x!==undefined).map(x=>String(x)):(s.content?[String(s.content)]:[])
+    content:Array.isArray(s.content)?s.content.filter(x=>x!==null&&x!==undefined).map(x=>String(x)):(s.content?[String(s.content)]:[]),
+    /* chart 必须透传：否则 AI 返回的图表数据在这一步被丢掉，
+       网页端 chartHTML 读不到、导出端也画不出（曾导致 Ch* 恒为 0） */
+    ...(s.chart&&typeof s.chart==="object"?{chart:s.chart}:{})
   }));
   if(!slides.length)return;
 
