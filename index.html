@@ -6599,7 +6599,10 @@ function parseStreaming(raw){
     const ms=s.match(/"subtitle"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if(ms)subtitle=JSON.parse('"'+ms[1]+'"');
   }catch(e){}
-  buildDeck({title:title||"生成中…",subtitle:subtitle,slides:slides});
+  /* 半成品渲染决不能把整份生成带崩：任何异常都吞掉，等下一片数据再试 */
+  try{
+    buildDeck({title:title||"生成中…",subtitle:subtitle,slides:slides});
+  }catch(e){}
 }
 function buildDeck(doctor){
   const created=!state.doctor;
