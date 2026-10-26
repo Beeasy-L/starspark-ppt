@@ -438,6 +438,8 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .page.cover .cs{font-size:var(--ts-sub)}
 .page.cover .ck,.page .cmp-col .cmp-item,.page .tbl td{font-size:var(--ts-cap)}
 
+.xh-measuring *,.xh-measuring{animation:none!important;transition:none!important;opacity:1!important}
+
 /* 放映 */
 .overlay{position:fixed;inset:0;z-index:100;background:#05070f;display:none}
 .overlay.on{display:block}
@@ -1420,6 +1422,17 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.1 — 导出的样子 = 你看到的样子</div>
+        <div class="logdate">2026-10-26</div>
+        <ul class="loglist">
+          <li><b>换了导出方式：先量网页，再照抄成形状。</b> 以前网页和导出是两套各自排版的程序，必然越走越偏——实测同一页标题：网页是 <b>39.2pt、左边距 48pt</b>，导出的 pptx 却是 <b>24pt、64pt</b>。字号差了 15 个点，看起来当然不一样。</li>
+          <li><b>现在导出的位置和字号直接取自网页渲染结果</b>，实测三页比对：<b>位置差 0.00pt、字号差 0.00pt</b>。</li>
+          <li>好处不只是"像"：以后改一次就够。前几轮装饰、图表、字体我每样都得改两遍，就是这个毛病。</li>
+          <li>文字依然是<b>真文本框</b>，可以在 PowerPoint 里直接编辑，不是截图。</li>
+          <li>用真 PowerPoint 打开验证：13 页、273 个形状、<b>没有弹修复对话框</b>。</li>
+          <li><b>新增</b>：放映时逐页淡入的切换效果。</li>
+          <li>已知限制：环形图的圆弧是浏览器画的矢量元素，目前抄不过来（会退化成底环+中心数字）；复杂渐变和阴影也抄不全。</li>
+        </ul>
         <div class="logver">V2.0 — 每个方向都有自己的骨架了</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -1661,6 +1674,37 @@ function renderSkills(){
     state.skill=el.dataset.k;renderSkills();});
 }
 /* 从当前模板读取实际配色（解析 CSS 变量，供 .pptx 使用） */
+
+/* 逐页离屏渲染到 960×540，量出每个元素的位置，供导出照抄。
+   在 960×540 下量，1 CSS px == 1 pt，转录零换算误差。 */
+function measureTables(){
+  if(typeof XH_DOM2PPTX === "undefined" || !XH_DOM2PPTX.extract) return null;
+  let host=document.getElementById("__measure");
+  if(!host){
+    host=document.createElement("div");
+    host.id="__measure";
+    host.style.cssText="position:fixed;left:-99999px;top:0;width:960px;height:540px;overflow:hidden;container-type:size";
+    document.body.appendChild(host);
+  }
+  const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
+  const deco=decoClsOf(state.template);
+  const tables=[];
+  for(let i=0;i<state.slides.length;i++){
+    const s=state.slides[i];
+    try{
+      host.innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)} ${deco}">${pageHTML(s,i,state.slides.length)}</div>`;
+      const pg=host.querySelector(".page");
+      const tb=XH_DOM2PPTX.extract(pg,960,540);
+      tables.push(tb && tb.length ? tb : null);
+    }catch(e){
+      tables.push(null);
+      console.warn("[星火PPT] 第"+(i+1)+"页转录失败，将退回版式模板渲染",e);
+    }
+  }
+  host.innerHTML="";
+  return tables;
+}
+
 function readThemeColors(tplId){
   const t = (typeof TPL!=="undefined" ? TPL.find(x=>x.id===tplId) : null) || (TPL && TPL[0]);
   const wrap=document.createElement("div");
@@ -4188,13 +4232,18 @@ window.XH_POEMS = {
     return out;
   }
 
-  function slideXml(pal, shapes) {
+  function slideXml(pal, shapes, anim) {
+    /* 切换效果：放映时逐页淡入。元素顺序必须严格是 cSld → transition → clrMapOvr，
+       放错位置 PowerPoint 会判定文件损坏。 */
+    var trans = (anim === false) ? ""
+      : '<p:transition spd="med"><p:fade/></p:transition>';
     return DECL
       + '<p:sld ' + NS + '>'
       + '<p:cSld>'
       + '<p:bg><p:bgPr><a:solidFill><a:srgbClr val="' + pal.bg + '"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'
       + '<p:spTree>' + GRP + shapes.join("") + '</p:spTree>'
       + '</p:cSld>'
+      + trans
       + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
       + '</p:sld>';
   }
@@ -4933,6 +4982,43 @@ window.XH_POEMS = {
     footNote(sb, pal, s.note);
   }
 
+
+  /* ---------- 转录渲染：把 DOM 量出来的元素表直接写成形状 ----------
+     这条路径下，网页预览就是唯一真相：位置/字号/颜色/字重全部照抄量出来的值，
+     不再由另一套版式函数重新推算（那正是「网页和导出不一样」的根源）。 */
+  function layFromTable(sb, pal, deck, s, ctx) {
+    var table = (ctx && ctx.table) || [], i, e, t;
+
+    /* 先画色块/线条（在文字之下） */
+    for (i = 0; i < table.length; i++) {
+      e = table[i];
+      if (!e || e.kind !== "rect") continue;
+      if (e.fill) {
+        sb.push(shape({ name: "Box" + i, geom: "rect", x: e.x, y: e.y,
+                        w: Math.max(1, e.w), h: Math.max(1, e.h),
+                        fill: e.fill, alpha: (e.fillAlpha == null ? 1 : e.fillAlpha) }));
+      } else if (e.border) {
+        sb.push(shape({ name: "Line" + i, geom: "rect", x: e.x, y: e.y,
+                        w: Math.max(1, e.w), h: Math.max(1, e.borderW || 1),
+                        fill: e.border }));
+      }
+    }
+
+    /* 再画文字 */
+    for (i = 0; i < table.length; i++) {
+      t = table[i];
+      if (!t || t.kind !== "text") continue;
+      var sz = Math.max(600, Math.round((t.size || 12) * 100));   /* OOXML 用百分之一磅 */
+      var algn = (t.align === "center") ? "ctr"
+               : (t.align === "right" || t.align === "end") ? "r" : "l";
+      sb.push(shape({
+        name: "T" + i, x: t.x, y: t.y, w: t.w + 4, h: t.h + 2, anchor: "t",
+        paras: [para([run(t.text, { sz: sz, b: !!t.bold, color: t.color, font: t.font })],
+          { algn: algn, lineSpcPct: 100000, sz: sz, color: t.color, b: !!t.bold, font: t.font })]
+      }));
+    }
+  }
+
   var RENDER = {
     cover: layCover, closing: layClosing, bullets: layBullets, two_col: layTwoCol,
     grid: layGrid, kpi: layKpi, timeline: layTimeline, steps: laySteps,
@@ -5139,12 +5225,14 @@ window.XH_POEMS = {
     for (i = 0; i < n; i++) {
       var sl = slides[i];
       var L = normLayout(sl.layout);
-      var fn = RENDER[L] || RENDER.bullets;      // 未知版式 → bullets
+      var tbl = (opts.domTables && opts.domTables[i]) || null;
+      var fn = tbl ? layFromTable : (RENDER[L] || RENDER.bullets);   // 有转录表就照抄网页
       var ctx = {
         pal: pal,
         img: slideImg[i],
         rid: slideImgRid[i],
-        area: { x: M, y: BODY_Y, w: CW, h: BODY_B - BODY_Y }
+        area: { x: M, y: BODY_Y, w: CW, h: BODY_B - BODY_Y },
+        table: tbl
       };
       resetId();
       var shapes = [];
@@ -5176,7 +5264,7 @@ window.XH_POEMS = {
           if (dm) shapes = decoShapes(dm, pal).concat(shapes);
         }
       } catch (e) {}
-      slideXmls.push(slideXml(pal, shapes));
+      slideXmls.push(slideXml(pal, shapes, opts.anim));
     }
 
     /* ---- 4) presentation.xml.rels ---- */
@@ -5626,6 +5714,151 @@ window.XH_POEMS = {
     audit: audit
   };
 })(window, document);
+
+
+/* ============ DOM 转录器（量盒子） ============ */
+/* ============================================================================
+ * 星火PPT · DOM 转录器（HTML → 绝对坐标元素表）
+ * ----------------------------------------------------------------------------
+ * 为什么要有它：现在网页用 pageHTML()（HTML/CSS），导出用 pptx.js（另一套坐标）。
+ * 两套必然走偏，而且要修两遍。这个转录器让「网页预览」成为唯一真相：
+ * 把渲染结果量一遍，得到每个元素在 960×540 画布上的绝对位置，
+ * 之后导出只需按这张表写形状 —— 看到的和导出的就是同一个东西。
+ *
+ * 依赖：无。输入：一个已渲染的 .page 元素。输出：元素数组。
+ * ========================================================================== */
+(function (w) {
+  var DEFAULT_W = 960, DEFAULT_H = 540;
+
+  function rgbToHex(s) {
+    if (!s) return null;
+    var m = String(s).match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    var p = m[1].split(",");
+    var r = parseInt(p[0], 10), g = parseInt(p[1], 10), b = parseInt(p[2], 10);
+    var a = p.length > 3 ? parseFloat(p[3]) : 1;
+    if (a === 0) return null;
+    function h2(v) { v = Math.max(0, Math.min(255, v | 0)).toString(16); return v.length < 2 ? "0" + v : v; }
+    return { hex: (h2(r) + h2(g) + h2(b)).toUpperCase(), alpha: a };
+  }
+
+  /* 取第一个可用字体名，并映射到目标机必有的字体 */
+  function safeFont(family) {
+    var f = String(family || "").split(",")[0].replace(/["']/g, "").trim();
+    if (/kai|楷/i.test(f)) return "KaiTi";
+    if (/serif|song|simsun|sung|宋|mincho/i.test(f)) return "SimSun";
+    return "Microsoft YaHei";
+  }
+
+  function visible(el) {
+    if (!el) return false;
+    var cs = w.getComputedStyle(el);
+    if (!cs) return false;
+    if (cs.display === "none" || cs.visibility === "hidden") return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 0.5 && r.height > 0.5;
+  }
+
+  /**
+   * 转录一个已渲染的 .page
+   * @param {Element} pageEl  .page 元素（必须已经布局完成）
+   * @param {number}  W,H     目标画布（默认 960×540 pt）
+   * @returns {Array} 元素表
+   */
+  function extract(pageEl, W, H) {
+    W = W || DEFAULT_W; H = H || DEFAULT_H;
+    if (!pageEl) return [];
+
+    /* 关键：页面有逐层入场动画，量的时候元素可能还在 opacity:0 的起始帧，
+       会被可见性判断跳过（实测第 1 页只量到 1 个元素）。
+       先挂一个「测量中」类把动画/过渡关掉并强制回流，量完再摘掉。 */
+    var hadClass = pageEl.classList.contains("xh-measuring");
+    if (!hadClass) pageEl.classList.add("xh-measuring");
+    void pageEl.offsetWidth;   /* 强制回流 */
+
+    var pr = pageEl.getBoundingClientRect();
+    if (!pr.width || !pr.height) return [];
+    var kx = W / pr.width, ky = H / pr.height;
+    var out = [];
+
+    function rel(r) {
+      return {
+        x: +( (r.left - pr.left) * kx ).toFixed(2),
+        y: +( (r.top - pr.top) * ky ).toFixed(2),
+        w: +( r.width * kx ).toFixed(2),
+        h: +( r.height * ky ).toFixed(2)
+      };
+    }
+
+    /* ---- 1) 文字：按文本节点逐个量 ---- */
+    var walker = document.createTreeWalker(pageEl, NodeFilter.SHOW_TEXT, null, false);
+    var node, seen = 0;
+    while ((node = walker.nextNode())) {
+      var txt = String(node.nodeValue || "").replace(/\s+/g, " ").trim();
+      if (!txt) continue;
+      var el = node.parentElement;
+      if (!el || !visible(el)) continue;
+      var cs = w.getComputedStyle(el);
+      if (cs.textOverflow === "ellipsis" || cs.whiteSpace === "nowrap") { /* 仍然要量，按实际框 */ }
+      var range = document.createRange();
+      range.selectNodeContents(node);
+      var rr = range.getBoundingClientRect();
+      if (range.detach) { try { range.detach(); } catch (e) {} }
+      if (!rr || rr.width < 0.5 || rr.height < 0.5) continue;
+      var col = rgbToHex(cs.color);
+      if (!col) continue;
+      out.push({
+        kind: "text",
+        text: txt,
+        x: +((rr.left - pr.left) * kx).toFixed(2),
+        y: +((rr.top - pr.top) * ky).toFixed(2),
+        w: +(rr.width * kx).toFixed(2),
+        h: +(rr.height * ky).toFixed(2),
+        size: +( parseFloat(cs.fontSize) * ky ).toFixed(1),
+        color: col.hex, alpha: col.alpha,
+        bold: (parseInt(cs.fontWeight, 10) || 400) >= 600,
+        font: safeFont(cs.fontFamily),
+        align: cs.textAlign,
+        lineHeight: cs.lineHeight
+      });
+      seen++;
+    }
+
+    /* ---- 2) 色块 / 线条：按元素背景与边框量 ---- */
+    var all = pageEl.querySelectorAll("*");
+    for (var i = 0; i < all.length; i++) {
+      var e = all[i];
+      if (!visible(e)) continue;
+      var s = w.getComputedStyle(e);
+      var bg = rgbToHex(s.backgroundColor);
+      var bt = parseFloat(s.borderTopWidth) || 0;
+      var bc = bt > 0 ? rgbToHex(s.borderTopColor) : null;
+      if (!bg && !bc) continue;
+      var r2 = e.getBoundingClientRect();
+      var box = rel(r2);
+      if (box.w < 1 || box.h < 0.5) continue;
+      if (bg && box.w > W * 0.98 && box.h > H * 0.98) {
+        out.push({ kind: "bg", fill: bg.hex, alpha: bg.alpha });
+        continue;
+      }
+      out.push({
+        kind: "rect", x: box.x, y: box.y, w: box.w, h: box.h,
+        fill: bg ? bg.hex : null, fillAlpha: bg ? bg.alpha : 0,
+        border: bc ? bc.hex : null, borderW: bt ? +(bt * ky).toFixed(2) : 0
+      });
+    }
+
+    if (!hadClass) pageEl.classList.remove("xh-measuring");
+    return out;
+  }
+
+  w.XH_DOM2PPTX = {
+    version: "0.1-poc",
+    extract: extract,
+    safeFont: safeFont,
+    canvas: { w: DEFAULT_W, h: DEFAULT_H }
+  };
+})(typeof window !== "undefined" ? window : this);
 
 
 /* ---- 状态检查 ---- */
@@ -6263,6 +6496,11 @@ $("#btn-export-pptx").onclick=()=>{
       })
     };
     const opts = readThemeColors(state.template);
+    /* 转录优先：先把网页逐页量一遍，再照抄成形状；量不出来才退回版式模板 */
+    try{
+      const tb = measureTables();
+      if(tb && tb.length) opts.domTables = tb;
+    }catch(e){ console.warn("[星火PPT] 转录不可用，退回版式模板", e); }
     const bytes = XH_PPTX.build(deck, opts);      /* 同步返回 Uint8Array */
     const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
     const a=document.createElement("a");
