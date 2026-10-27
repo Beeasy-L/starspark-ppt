@@ -391,6 +391,8 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .ring-mid span{font-size:var(--ts-cap);color:var(--tsub)}
 .ring-lab{font-size:var(--ts-body);color:var(--tp)}
 
+.chart-degraded{margin-top:1.2cqw;font-size:var(--ts-cap);color:var(--tsub);opacity:.85;letter-spacing:.02em}
+
 /* 页面配图 */
 .page .pg-img{position:absolute;inset:0;background-size:cover;background-position:center;
   opacity:.30;pointer-events:none;z-index:0}
@@ -6991,12 +6993,27 @@ function chartItems(s, pts){
   }
   return items.filter(function(it){ return it && (it.label!==undefined || it.value!==undefined); });
 }
+/* 图表类型归一：常见别名接住（donut/pie 就是环形图的自然英文写法），
+   其余无法识别的类型按条形图呈现，但必须让用户看见「已按条形图呈现」，
+   不许静默降级——用户看到错的图而毫不知情，比报错更糟。 */
+const CHART_ALIAS = { bar:"bar", bars:"bar", column:"bar", horizontalbar:"bar", hbar:"bar",
+  progress:"progress", progressbar:"progress", barprogress:"progress",
+  ring:"ring", donut:"ring", doughnut:"ring", pie:"ring", percent:"ring", percentage:"ring" };
 function chartHTML(s, pts){
   const ch = s.chart || {};
-  const type = String(ch.type||"bar").toLowerCase();
+  const rawType = String(ch.type||"bar").toLowerCase().replace(/[\s_-]/g,"");
+  const mapped = CHART_ALIAS[rawType];
+  const type = mapped || "bar";
+  const degraded = !mapped;
+  if(degraded){
+    try{ console.warn("[星火PPT] 未知图表类型「"+(ch.type||"")+"」，已按条形图呈现"); }catch(e){}
+  }
   const unit = ch.unit ? String(ch.unit) : "";
   const items = chartItems(s, pts);
   if(!items.length) return "";
+  const tail = degraded
+    ? '<div class="chart-degraded">图表类型「'+esc(String(ch.type||""))+'」不支持，已按条形图呈现</div>'
+    : "";
   const nums = items.map(function(it){ return Math.abs(parseFloat(it.value)||0); });
   const max = Math.max.apply(null, nums.concat([1]));
 
@@ -7011,7 +7028,7 @@ function chartHTML(s, pts){
         '<circle cx="70" cy="70" r="'+r+'" class="ring-fg" stroke-dasharray="'+(C*v/100).toFixed(1)+' '+C.toFixed(1)+'"></circle>'+
       '</svg>'+
       '<div class="ring-mid"><b>'+esc(String(it.value))+'</b><span>'+esc(unit)+'</span></div>'+
-      '<div class="ring-lab">'+esc(it.label||"")+'</div></div>';
+      '<div class="ring-lab">'+esc(it.label||"")+'</div>'+tail+'</div>';
   }
   if(type==="progress"){
     return '<div class="chart chart-prog">'+items.map(function(it){
@@ -7020,7 +7037,7 @@ function chartHTML(s, pts){
         '<div class="cp-val">'+esc(String(it.value))+esc(unit)+'</div>'+
         '<div class="cp-track"><div class="cp-fill" style="height:'+(v/max*100).toFixed(1)+'%"></div></div>'+
         '<div class="cp-lab">'+esc(it.label||"")+'</div></div>';
-    }).join("")+'</div>';
+    }).join("")+'</div>'+tail;
   }
   return '<div class="chart chart-bar">'+items.map(function(it){
     const v=Math.abs(parseFloat(it.value)||0);
@@ -7028,7 +7045,7 @@ function chartHTML(s, pts){
       '<div class="cb-lab">'+esc(it.label||"")+'</div>'+
       '<div class="cb-track"><div class="cb-fill" style="width:'+(v/max*100).toFixed(1)+'%"></div></div>'+
       '<div class="cb-val">'+esc(String(it.value))+esc(unit)+'</div></div>';
-  }).join("")+'</div>';
+  }).join("")+'</div>'+tail;
 }
 
 function pageHTML(s,i,total){
