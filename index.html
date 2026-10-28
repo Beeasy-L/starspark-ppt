@@ -5675,12 +5675,18 @@ window.XH_POEMS = {
       sb.push(shape({ name: "ChRingBg", geom: "donut", x: cx - R - 8, y: cy - R - 8,
                       w: (R + 8) * 2, h: (R + 8) * 2, fill: pal.line, alpha: 0.55 }));
       var segs = 36, filled = Math.round(pct / 100 * segs), k;
+      /* 珠链感：珠宽按「圆弧槽位 × 占空比」算，不写死 —— 写死 6 会随半径变化，
+         小半径时珠子挤成一团、大半径时又碎成断点。 */
+      var slotR = 2 * Math.PI * R / segs;
+      var beadW = Math.max(1.2, slotR * 0.88);
+      var beadH = Math.max(4, Math.min(slotR * 2.4, 16));
       for (k = 0; k < segs; k++) {
         if (k >= filled) break;
         var ang = k * 360 / segs - 90;
         var th = ang * Math.PI / 180;
         var px = cx + R * Math.cos(th), py = cy + R * Math.sin(th);
-        sb.push(shape({ name: "ChSeg" + k, geom: "rect", x: px - 3, y: py - 8, w: 6, h: 16,
+        sb.push(shape({ name: "ChSeg" + k, geom: "rect",
+                        x: px - beadW / 2, y: py - beadH / 2, w: beadW, h: beadH,
                         fill: pal.accent, rot: ang }));
       }
       var numTxt = String(it.value) + d.unit;
@@ -5790,7 +5796,7 @@ window.XH_POEMS = {
              (2πR/36)，珠子会互相压住连成实心环。改为按槽位取 62%，
              段间空隙 ≈38%（目标区间 35~42%），珠子彼此分明、环仍连续。 */
           var slot2 = 2 * Math.PI * rr2 / segs;
-          var beadW2 = Math.max(0.6, Math.min(sw2, slot2 * 0.62));
+          var beadW2 = Math.max(0.6, Math.min(Math.max(sw2, slot2 * 0.92), slot2 * 0.88));
           for (var k2 = 0; k2 < filled; k2++) {
             var ang2 = k2 * 360 / segs - 90;
             var th2 = ang2 * Math.PI / 180;
