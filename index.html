@@ -4847,11 +4847,84 @@ window.XH_POEMS = {
     return out;
   }
 
+  /* ==========================================================================
+   * 入场动画时间树（<p:timing>）
+   * 目的：导出的 .pptx 放映时，标题/要点/图表按网页那套节奏依次淡入，
+   *       而不是整页硬切。全部「与上一动画同时 + 递增延迟」，不依赖点击。
+   * 依据 ECMA-376 CT_SlideTiming；p:spTgt 的 spid 必须等于形状 cNvPr 的 id。
+   * ========================================================================== */
+  var ANIM_STEP_MS = 90;   /* 相邻形状的起始间隔 */
+
+  /* 从形状 XML 里抽出 {id, name}，按文档顺序返回（标题类排前面） */
+  function shapeIdsOf(shapeXmlArr) {
+    var list = [];
+    for (var i = 0; i < shapeXmlArr.length; i++) {
+      var m = /<p:cNvPr id="(\d+)" name="([^"]*)"/.exec(shapeXmlArr[i] || "");
+      if (!m) continue;
+      var id = parseInt(m[1], 10);
+      if (!(id > 1)) continue;             /* 1 是 group 自身，跳过 */
+      list.push({ id: id, name: m[2] || "" });
+    }
+    /* 排序：标题(T1/T2) → 其余按原顺序；装饰(Deco*)最后 */
+    var weight = function (n) {
+      if (/^T[0-9]/.test(n)) return 0;
+      if (/^Line/.test(n)) return 1;
+      if (/^Ch/.test(n)) return 2;
+      if (/^Deco/.test(n)) return 3;
+      return 1.5;
+    };
+    return list.map(function (o, idx) { return { o: o, idx: idx, w: weight(o.name) }; })
+      .sort(function (a, b) { return a.w - b.w || a.idx - b.idx; })
+      .map(function (x) { return x.o; });
+  }
+
+  function timingXml(shapeXmlArr) {
+    var ids = shapeIdsOf(shapeXmlArr);
+    if (!ids.length) return "";
+    var ctnId = 3;                        /* 1=根 2=主序列，之后顺延 */
+    var n = ids.length;
+    if (n > 24) {
+      /* 形状太多时只给前 24 个做递进，其余跟着最后一批出现，避免时间树过长 */
+      n = 24;
+    }
+    var kids = [];
+    for (var i = 0; i < n; i++) {
+      var delay = i * ANIM_STEP_MS;
+      var a = ctnId++, b = ctnId++, c = ctnId++;
+      kids.push(
+        '<p:par><p:cTn id="' + a + '" fill="hold">' +
+          '<p:stCondLst><p:cond delay="' + delay + '"/></p:stCondLst>' +
+          '<p:childTnLst><p:par><p:cTn id="' + b + '" fill="hold" nodeType="withEffect">' +
+            '<p:stCondLst><p:cond delay="0"/></p:stCondLst>' +
+            '<p:childTnLst>' +
+              '<p:animEffect transition="in" filter="fade">' +
+                '<p:cBhvr><p:cTn id="' + c + '" dur="420"/>' +
+                '<p:tgtEl><p:spTgt spid="' + ids[i].id + '"/></p:tgtEl>' +
+                '</p:cBhvr></p:animEffect>' +
+            '</p:childTnLst>' +
+          '</p:cTn></p:par></p:childTnLst>' +
+        '</p:cTn></p:par>'
+      );
+    }
+    var seqId = ctnId++;
+    var mainId = ctnId++;
+    return '<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">' +
+      '<p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="' + mainId + '" dur="indefinite" nodeType="mainSeq">' +
+      '<p:childTnLst>' + kids.join("") + '</p:childTnLst>' +
+      '</p:cTn>' +
+      '<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
+      '<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +
+      '</p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>';
+  }
+
   function slideXml(pal, shapes, anim, bgGrad) {
     /* 切换效果：放映时逐页淡入。元素顺序必须严格是 cSld → transition → clrMapOvr，
        放错位置 PowerPoint 会判定文件损坏。 */
     var trans = (anim === false) ? ""
       : '<p:transition spd="med"><p:fade/></p:transition>';
+    /* 入场动画：形状级淡入，与网页 CSS 的 xhIn 递进节奏对齐。
+       anim===false（如模板缩略/无动画导出）时两者都不写。 */
+    var timing = (anim === false) ? "" : timingXml(shapes);
     return DECL
       + '<p:sld ' + NS + '>'
       + '<p:cSld>'
@@ -4860,6 +4933,7 @@ window.XH_POEMS = {
       + '</p:cSld>'
       + trans
       + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
+      + timing
       + '</p:sld>';
   }
 
