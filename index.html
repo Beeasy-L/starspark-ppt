@@ -480,6 +480,10 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .den.on{background:rgba(242,198,109,.14);border-color:var(--gold);color:var(--gold)}
 .den.on i{color:var(--gold)}
 
+.anim-lab{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2);cursor:pointer}
+.anim-lab input{accent-color:var(--gold);cursor:pointer}
+.anim-hint{font-size:11px;color:var(--ink2);opacity:.65;margin-left:6px}
+
 /* ---- 封面样张先选后做 ---- */
 .covers-btn{width:100%;margin-top:8px;padding:9px 12px;border-radius:9px;cursor:pointer;
   font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--panel2);
@@ -1446,6 +1450,11 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       </div>
 
       <div class="label">背景音乐（可选）</div>
+      <div class="denrow" id="animrow">
+        <label class="anim-lab" for="animoff"><input type="checkbox" id="animoff"> 关闭动画</label>
+        <span class="anim-hint">勾选后所有元素立即完整显示（无障碍/弱设备）</span>
+      </div>
+
       <div id="bgmSlot"></div>
 
       <button class="enh-btn" id="enh-btn">✨ 先帮我优化提示词</button>
@@ -1498,6 +1507,14 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V2.9 — 翻页时，音乐会自己让路</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>翻页转场的那一下，背景音乐自动压低、转完恢复，标题和画面不再被音乐抢戏。</li>
+          <li>设置区新增「关闭动画」开关：勾上之后所有内容立即完整显示，适合弱设备、录屏、或不喜欢动效的人。</li>
+          <li>系统若设置了「减少动态效果」（无障碍偏好），自动跟随，无需手动关。</li>
+          <li>现有版式的入场节奏一律不动——这次只加编排，不改动画本身。</li>
+        </ul>
         <div class="logver">V2.8 — 自检升级：面板不再互相压住</div>
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
@@ -1716,6 +1733,390 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 <div id="toast"></div>
 
 
+<script id="xh-anim-module">
+/* ===== 星火PPT 动画编排模块 anim.js（内联，来自 dev/anim.js）===== */
+/*!
+ * 星火PPT · 动画编排模块 (anim.js)
+ * 依据：《星火网页动效规范 v1.0》 文档/规范/星火网页动效规范.md
+ *
+ * 定位：与 bgm.js 同级的独立可替换模块。只向 window 暴露一个 createAnim。
+ * 原则：
+ *   1. 零依赖、零外部 CSS、不碰 PPT 渲染逻辑
+ *   2. 所有异常吞掉，绝不把错误抛给主页面
+ *   3. 一键关闭全部动画时，元素必须"立即可见"，不得残留 opacity:0
+ *
+ * 用法：
+ *   var anim = createAnim({ onPageEnter: function(page){ ... } });
+ *   anim.mount(document.getElementById('stage'));
+ *   anim.attach(renderSlide);   // 每次换页时触发
+ */
+(function (global) {
+  'use strict';
+
+  /* ============ 动效常量（全部来自规范，勿随意改） ============ */
+
+  // 缓动曲线族 —— 直接取自星火专注Pro 已上线验证的 5 条曲线
+  var EASE = {
+    out:    'cubic-bezier(.23,1,.32,1)',    // ★ 标准入场（全局默认）
+    flame:  'cubic-bezier(.16,.84,.36,1)',  // 火焰类（有机、轻微过冲）
+    rise:   'cubic-bezier(.2,.7,.3,1)',     // 飞升类
+    drift:  'cubic-bezier(.12,.7,.3,1)',    // 飘散类
+    soft:   'ease'                          // 状态切换
+  };
+
+  // 时长表（毫秒）—— 规范第三节
+  var DUR = {
+    title:    420,   // 标题 / 主视觉
+    sub:      380,   // 副标题 / 说明
+    item:     340,   // 正文要点（逐条）
+    chart:    480,   // 图表 / 数据块
+    deco:     600,   // 装饰元素
+    poemFoot: 600,   // 诗笺页脚
+    cover:    500,   // 封面各段
+    kpi:      450,   // KPI 单元格
+    pageIn:   350    // 页面转场
+  };
+
+  // 要点逐条间隔
+  var STEP_GAP = 70;        // 规范 §5.1：每条间隔 70ms
+  var PAGE_BUDGET = 1200;   // 规范 §5.1：单页元素出场总时长不超过 1.2s
+
+  // 三档全局速度
+  var SPEEDS = { slow: 1.4, normal: 1.0, fast: 0.7 };
+
+  // 存储键
+  var LS_KEY = 'xh.anim.off';      // 用户手动关闭
+  var LS_SPEED = 'xh.anim.speed';  // 用户选择的速度
+
+  /* ============ 内部状态 ============ */
+
+  var st = {
+    mounted: false,
+    destroyed: false,
+    rootEl: null,
+    speed: 1.0,
+    disabled: false,        // 用户手动关闭（优先于系统设置）
+    onPageEnter: null,      // 页面入场回调（用于接 BGM duck）
+    lastPage: null,
+    // 记录哪些元素被本模块设过动画，用于关闭时立即还原
+    touched: []
+  };
+
+  /* ============ 工具 ============ */
+
+  function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+  function prefersReduce(){
+    try {
+      return !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch(e){ return false; }
+  }
+
+  function mul(ms){ return Math.round(ms * st.speed); }
+
+  function el(tag, cls){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  /* ============ 样式注入（幂等） ============ */
+
+  var STYLE_ID = 'xh-anim-style';
+
+  function injectStyle(){
+    if (document.getElementById(STYLE_ID)) return;
+    var css = [
+      ':root{--xh-speed:' + st.speed + '}',
+      '@keyframes xhAnimIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}',
+      '@keyframes xhAnimPop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}',
+      '@keyframes xhAnimFade{from{opacity:0}to{opacity:1}}',
+      /* 关闭动画时：强制所有动效元素立即可见，不得残留 opacity:0 */
+      'html.xh-anim-off .page *,html.xh-anim-off .page *::before,html.xh-anim-off .page *::after{',
+      '  animation:none !important;transition:none !important;opacity:1 !important;transform:none !important;',
+      '  filter:none !important;clip-path:none !important;',
+      '}',
+      /* B3 修复：上面的 opacity:1!important 会盖掉配图的半透明设计（.pg-img 是 0.30/.9），
+         关动画后配图会变全不透明挡住标题。这里把配图的不透明度还原回原设计值。 */
+      'html.xh-anim-off .page .pg-img{opacity:.30 !important}',
+      'html.xh-anim-off .page .pg-img.band{opacity:.9 !important}',
+      /* reduced-motion：全站覆盖（补 PPT 现状只覆盖 .page * 的缺口） */
+      '@media (prefers-reduced-motion: reduce){',
+      '  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;',
+      '    transition-duration:.01ms !important;scroll-behavior:auto !important;}',
+      '}',
+      /* 三档速度 */
+      'html.xh-speed-slow{--xh-speed:1.4}',
+      'html.xh-speed-normal{--xh-speed:1}',
+      'html.xh-speed-fast{--xh-speed:.7}'
+    ].join('\n');
+    var s = document.createElement('style');
+    s.id = STYLE_ID;
+    s.appendChild(document.createTextNode(css));
+    (document.head || document.documentElement).appendChild(s);
+  }
+
+  /* ============ 关闭 / 还原 ============ */
+
+  function applyOff(){
+    // 方式一：class 兜底（CSS 强制可见），适用于所有元素
+    try {
+      document.documentElement.classList.add('xh-anim-off');
+    } catch(e){}
+    // 方式二：对本模块触碰过的元素逐个清除内联样式，确保立即可见
+    for (var i=0;i<st.touched.length;i++){
+      var e = st.touched[i];
+      if (!e || !e.style) continue;
+      try {
+        e.style.animation = 'none';
+        e.style.opacity = '';
+        e.style.transform = '';
+        e.style.transitionDelay = '';
+        e.style.animationDelay = '';
+      } catch(err){}
+    }
+    st.touched.length = 0;
+  }
+
+  function applyOn(){
+    try { document.documentElement.classList.remove('xh-anim-off'); } catch(e){}
+  }
+
+  /* ============ 元素出场编排 ============ */
+
+  // 给元素设置入场动画，记录到 touched 以便关闭时还原
+  function play(el, delayMs, durMs, kind){
+    if (!el || st.disabled || prefersReduce()) return;
+    try {
+      var name = (kind === 'pop') ? 'xhAnimPop'
+               : (kind === 'fade') ? 'xhAnimFade'
+               : 'xhAnimIn';
+      el.style.animation = name + ' ' + mul(durMs) + 'ms ' + EASE.out + ' ' + delayMs + 'ms both';
+      el.style.opacity = '0';
+      // 下一帧放开 opacity，让动画能正常播放（否则 both + opacity:0 会锁死）
+      requestAnimationFrame(function(){
+        try { el.style.opacity = ''; } catch(e){}
+      });
+      st.touched.push(el);
+    } catch(e){}
+  }
+
+  function clearAnim(el){
+    if (!el || !el.style) return;
+    try {
+      el.style.animation = '';
+      el.style.animationDelay = '';
+      el.style.opacity = '';
+      el.style.transform = '';
+    } catch(e){}
+  }
+
+  /*
+   * 单页出场时序表 —— 规范 §5.1
+   * 顺序：标题 → 分隔线 → 逐条要点 → 图表 → 收束句 → 装饰
+   * 注意：PPT 主页面已有 CSS 层的 .pt/.phr/.ulist li 等动画（L221-244），
+   *   本模块只负责「补齐缺口 + 提供编排能力」，不与 CSS 动画打架。
+   */
+  function orchestrate(page){
+    /* 方案B：时序由主页面 L221-244 的 CSS 动画负责，本模块不再写 animation-delay，
+       避免双重动画。速度/开关/reduced-motion/onPageEnter 全部不受影响。 */
+    if (true) return;
+    if (!page || st.disabled || prefersReduce()) return;
+
+    // ---- 1. 标题 / 主视觉 ----
+    var title = page.querySelector('.pt, .ct, .ck');
+    if (title) play(title, 0, DUR.title, 'in');
+
+    // ---- 2. 副标题 / 分隔线 ----
+    var sub = page.querySelector('.phr');
+    if (sub) play(sub, 60, DUR.sub, 'in');
+
+    // ---- 3. 正文要点（逐条递进，间隔 70ms） ----
+    var itemSel = '.ulist li, .lcell, .tc-item, .zz-row, .step, .tl-item, .cmp-col, .tbl tr';
+    var items;
+    try { items = page.querySelectorAll(itemSel); } catch(e){ items = []; }
+    if (items && items.length) {
+      var n = Math.min(items.length, 8);
+      for (var i=0;i<n;i++){
+        var delay = 100 + i * STEP_GAP;
+        // 超出预算的条目不再递进，避免整页拖沓
+        if (delay + DUR.item > PAGE_BUDGET) delay = Math.max(0, PAGE_BUDGET - DUR.item);
+        play(items[i], delay, DUR.item, 'in');
+      }
+    }
+
+    // ---- 4. 图表 / 数据块 ----
+    var chart = page.querySelector('.chart-ring, .kpi-row');
+    if (chart) play(chart, 160, DUR.chart, 'pop');
+
+    // KPI 单元格逐个（4 档）
+    var kpis = page.querySelectorAll('.kpi-cell');
+    if (kpis && kpis.length){
+      for (var k=0;k<Math.min(kpis.length,4);k++){
+        play(kpis[k], k * 120, DUR.kpi, 'pop');
+      }
+    }
+
+    // ---- 5. 收束句 / 页脚注 ----
+    var foot = page.querySelector('.pnote');
+    if (foot) play(foot, 340, DUR.title, 'in');
+
+    var poemFoot = page.querySelector('.poem-foot');
+    if (poemFoot) play(poemFoot, 500, DUR.poemFoot, 'fade');
+
+    // ---- 6. 封面各段 ----
+    var coverParts = page.querySelectorAll('.page.cover .ck, .page.cover .ct, .page.cover .cb, .page.cover .cs');
+    if (coverParts && coverParts.length){
+      for (var c=0;c<coverParts.length;c++){
+        play(coverParts[c], c * 80, DUR.cover, 'in');
+      }
+    }
+
+    // ---- 7. 装饰元素最后出场 ----
+    var deco = page.querySelectorAll('.deco, .motif, .deco-layer');
+    if (deco && deco.length){
+      for (var d=0;d<deco.length;d++){
+        play(deco[d], 480 + d * 40, DUR.deco, 'fade');
+      }
+    }
+  }
+
+  /* ============ 页面切换监听 ============ */
+
+  function onStageChange(){
+    if (st.destroyed) return;
+    var page = null;
+    try { page = st.rootEl && st.rootEl.querySelector('.page'); } catch(e){}
+    if (!page) return;
+
+    // 同一页重复触发不重播
+    if (st.lastPage === page) return;
+    st.lastPage = page;
+
+    // 先清掉上一页残留的内联动画
+    for (var i=0;i<st.touched.length;i++){ clearAnim(st.touched[i]); }
+    st.touched.length = 0;
+
+    orchestrate(page);
+
+    // 通知宿主：用于接 BGM duck（规范 §8）
+    if (st.onPageEnter){
+      try { st.onPageEnter(page, { duration: mul(DUR.pageIn) }); } catch(e){}
+    }
+  }
+
+  /* ============ 对外 API ============ */
+
+  function createAnim(options){
+    var opt = options || {};
+    st.onPageEnter = typeof opt.onPageEnter === 'function' ? opt.onPageEnter : null;
+    st.disabled = (opt.disabled === true);
+    if (opt.speed && SPEEDS[opt.speed]) st.speed = SPEEDS[opt.speed];
+
+    // 读取用户偏好
+    var savedOff = lsGet(LS_KEY);
+    if (savedOff === '1') st.disabled = true;
+    var savedSpeed = lsGet(LS_SPEED);
+    if (savedSpeed && SPEEDS[savedSpeed]) st.speed = SPEEDS[savedSpeed];
+
+    injectStyle();
+    applySpeedClass();
+    if (st.disabled) applyOff();
+
+    var api = {
+      /* 挂载到舞台容器 */
+      mount: function(el){
+        try {
+          st.rootEl = el || null;
+          st.mounted = true;
+          if (st.rootEl && st.rootEl.querySelectorAll){
+            try {
+              var mo = new MutationObserver(function(){ onStageChange(); });
+              mo.observe(st.rootEl, { childList: true, subtree: true });
+              st.observer = mo;
+            } catch(e){}
+          }
+          onStageChange();
+        } catch(e){}
+        return api;
+      },
+
+      /* 换页后手动触发（推荐：编辑器每次 renderSlide 后调用） */
+      attach: function(){
+        try { onStageChange(); } catch(e){}
+      },
+
+      /* 一键关闭全部动画 —— 关闭后元素立即可见 */
+      setDisabled: function(v){
+        st.disabled = !!v;
+        try { lsSet(LS_KEY, st.disabled ? '1' : '0'); } catch(e){}
+        if (st.disabled){
+          applyOff();
+        } else {
+          applyOn();
+          // 重新编排当前页
+          st.lastPage = null;
+          onStageChange();
+        }
+        return api;
+      },
+
+      isDisabled: function(){ return st.disabled; },
+
+      /* 三档速度 */
+      setSpeed: function(name){
+        if (!SPEEDS[name]) return api;
+        st.speed = SPEEDS[name];
+        try { lsSet(LS_SPEED, name); } catch(e){}
+        applySpeedClass();
+        // 速度变了，重播当前页动画
+        st.lastPage = null;
+        onStageChange();
+        return api;
+      },
+
+      getSpeed: function(){ return st.speed; },
+      getSpeedName: function(){
+        for (var k in SPEEDS){ if (SPEEDS[k] === st.speed) return k; }
+        return 'normal';
+      },
+
+      /* 供 BGM 联动：转场时长（毫秒），duck 时长应对齐此值 */
+      getPageDuration: function(){ return mul(DUR.pageIn); },
+
+      /* 完整拆卸 */
+      destroy: function(){
+        try {
+          if (st.observer) { st.observer.disconnect(); st.observer = null; }
+          for (var i=0;i<st.touched.length;i++){ clearAnim(st.touched[i]); }
+          st.touched.length = 0;
+          applyOn();
+          st.destroyed = true;
+          st.mounted = false;
+          st.rootEl = null;
+        } catch(e){}
+      }
+    };
+
+    return api;
+  }
+
+  function applySpeedClass(){
+    try {
+      var html = document.documentElement;
+      html.classList.remove('xh-speed-slow','xh-speed-normal','xh-speed-fast');
+      var name = 'normal';
+      for (var k in SPEEDS){ if (SPEEDS[k] === st.speed) name = k; }
+      html.classList.add('xh-speed-' + name);
+      html.style.setProperty('--xh-speed', String(st.speed));
+    } catch(e){}
+  }
+
+  try { global.createAnim = createAnim; global.createAnim.EASE = EASE; global.createAnim.DUR = DUR; } catch(e){}
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
 <script>
 "use strict";
 const $=s=>document.querySelector(s);
@@ -6845,6 +7246,8 @@ function decoClsOf(tplId){
 }
 
 function renderSlide(){
+  try{ if(window.__xhAnim) window.__xhAnim.attach(); }catch(e){}
+
   const s=state.slides[state.current];
   const tpl=TPL.find(t=>t.id===state.template)||TPL[0];
   $("#stage").innerHTML=`<div class="page ${tpl.cls} ${normLayout(s.layout)} ${decoClsOf(state.template)}${(s.img||(normLayout(s.layout)==="cover"&&state.coverImg))?" has-img":""}">
@@ -7489,6 +7892,42 @@ function showCustomModel(show){
 }
 
 renderSkills();renderTpls();checkApi();renderHist();initApiPrefs();checkRenderer();
+/* 关闭动画开关 */
+(function(){ var el=document.getElementById('animoff'); if(!el) return;
+  el.addEventListener('change', function(){ try{
+    if(window.__xhAnim) window.__xhAnim.setDisabled(!!el.checked);
+    if(window.__xhAnim && window.__xhAnim.isDisabled()!==!!el.checked) el.checked=window.__xhAnim.isDisabled();
+    toast(el.checked ? '已关闭动画' : '已开启动画');
+  }catch(e){} });
+})();
+
+/* ---- 动画编排模块接入（方案 B：CSS 时序不动，模块管开关/无障碍/音画同步）---- */
+try{
+  window.__xhAnim = createAnim({
+    onPageEnter: function(page, info){
+      /* 翻页时压低 BGM，转场结束恢复。两个必须处理的边界：
+         ① 生成进行中：生成流程自己已经在 duck（距 6761 的 finally 才 duckOff），
+            这里再排一个 duckOff 会把音量在生成中途抬起来 → 生成期直接跳过。
+         ② 连续翻页：先清上一个定时器，否则多个 duckOff 叠加，音量会卡在低档。 */
+      try{
+        if(typeof generating !== "undefined" && generating) return;
+        if(window.__xhDuckTimer){ clearTimeout(window.__xhDuckTimer); window.__xhDuckTimer=null; }
+        if(window.bgm && bgm.duckOn){
+          bgm.duckOn();
+          window.__xhDuckTimer = setTimeout(function(){
+            try{ if(bgm && bgm.duckOff) bgm.duckOff(); }catch(e){}
+            window.__xhDuckTimer=null;
+          }, Math.max(120, (info && info.duration) || 300));
+        }
+      }catch(e){}
+    }
+  });
+  var _st=document.getElementById("stage"); if(_st) window.__xhAnim.mount(_st);
+  /* 关闭开关：读 localStorage 回填 UI */
+  var _ao=document.getElementById("animoff");
+  if(_ao){ _ao.checked = window.__xhAnim.isDisabled(); }
+}catch(e){ try{ console.warn("[星火PPT] 动画模块初始化失败：", e); }catch(_){} }
+
 try{ syncImgCfg(); var _io=$("#imgOn"); if(_io) _io.addEventListener("change", syncImgCfg); }catch(e){}
 
 /* ---- 背景音乐 ---- */
