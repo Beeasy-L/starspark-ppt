@@ -484,6 +484,23 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
 .anim-lab input{accent-color:var(--gold);cursor:pointer}
 .anim-hint{font-size:11px;color:var(--ink2);opacity:.65;margin-left:6px}
 
+/* ---- 生成前澄清面板 ---- */
+.clarifybox{display:none;margin-top:10px;padding:12px;border-radius:10px;
+  background:var(--panel2);border:1px solid var(--line2)}
+.clarifybox.show{display:block}
+.clr-head{font-size:12.5px;color:var(--gold);margin-bottom:9px}
+.clr-row{margin-bottom:8px}
+.clr-lab{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px}
+.clr-in{width:100%;box-sizing:border-box;padding:7px 9px;border-radius:7px;font-family:inherit;
+  font-size:12.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line2)}
+.clr-in:focus{outline:none;border-color:var(--gold)}
+.clr-btns{display:flex;gap:8px;margin-top:10px}
+.clr-go{flex:1;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12.5px;
+  font-weight:700;color:#0D1226;background:linear-gradient(135deg,var(--gold),#E0A94E);border:none}
+.clr-skip{padding:8px 12px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;
+  color:var(--ink2);background:transparent;border:1px solid var(--line2)}
+.clr-skip:hover{color:var(--ink);border-color:var(--line)}
+
 /* ---- 封面样张先选后做 ---- */
 .covers-btn{width:100%;margin-top:8px;padding:9px 12px;border-radius:9px;cursor:pointer;
   font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--panel2);
@@ -1455,6 +1472,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
         <span class="anim-hint">勾选后所有元素立即完整显示（无障碍/弱设备）</span>
       </div>
 
+      <div class="clarifybox" id="clarifybox"></div>
       <div id="bgmSlot"></div>
 
       <button class="enh-btn" id="enh-btn">✨ 先帮我优化提示词</button>
@@ -2676,9 +2694,65 @@ function buildSystemPromptJS(skillKey){
     "内容忠于原文；原文不足以支撑页数时，宁可少一页，也不要编造或灌水。\n";
 }
 
+/* ===================== 生成前澄清（信息不足先问一句） =====================
+   背景：提示词要求「标题即结论」「不编造数字」，但当原文既没结论也没数字时，
+   模型只能写空话——规则救不回来。这里在生成前补一次最小澄清，可一键跳过。 */
+function needClarify(text){
+  var t = String(text || "");
+  var qs = [];
+  if (!/谁|给|面向|汇报|答辩|听众|学生|客户|领导|同事|老板|投资人|家长/.test(t)) {
+    qs.push({ id:"who", q:"这份给谁看？", ph:"例：大三学生 / 部门领导 / 投资人" });
+  }
+  if (!/\d{2,}/.test(t)) {
+    qs.push({ id:"num", q:"有没有具体数字、时间或规模？", ph:"例：3 个月 / 96 人 / 下降 20%；没有就留空" });
+  }
+  /* 只对「真的薄」才问结论：中文 30 字以内通常还没成形；
+     40~80 字但已含判断/因果词的，不再追问（否则富内容也被拦，用户嫌烦）。 */
+  var hasJudgement = /结论|因为|所以|因此|导致|应该|建议|必须|需要|下降|上升|增长|下滑|达成|超过|低于/.test(t);
+  if (t.length < 30 && !hasJudgement) {
+    qs.push({ id:"point", q:"你最想让人记住的那一句结论是什么？", ph:"例：先跑通闭环，再谈规模" });
+  }
+  return qs;
+}
+
+function renderClarify(qs){
+  var box = document.getElementById("clarifybox");
+  if (!box) return;
+  box.innerHTML = '<div class="clr-head">再问一句，生成的会更准</div>'
+    + qs.map(function(o){
+        return '<div class="clr-row"><label class="clr-lab">' + esc(o.q) + '</label>'
+             + '<input class="clr-in" id="clr_' + o.id + '" placeholder="' + esc(o.ph) + '"></div>';
+      }).join("")
+    + '<div class="clr-btns"><button class="clr-go" id="clr-go">开始生成</button>'
+    + '<button class="clr-skip" id="clr-skip">直接生成</button></div>';
+  box.classList.add("show");
+  var go = document.getElementById("clr-go");
+  var skip = document.getElementById("clr-skip");
+  if (go) go.onclick = function(){
+    var parts = [];
+    qs.forEach(function(o){
+      var el = document.getElementById("clr_" + o.id);
+      var v = el ? String(el.value || "").trim() : "";
+      if (v) parts.push(o.q.replace(/[？?]$/, "") + "：" + v);
+    });
+    state.clarifyNote = parts.length ? ("【用户补充】\n" + parts.join("\n")) : "";
+    state.clarifyOk = true;
+    box.classList.remove("show");
+    generate();
+  };
+  if (skip) skip.onclick = function(){
+    state.clarifyNote = "";
+    state.clarifyOk = true;
+    box.classList.remove("show");
+    generate();
+  };
+  box.scrollIntoView({ behavior:"smooth", block:"nearest" });
+}
+
 function buildUserPromptJS(text, skillKey, pagesHint, refText){
   const s = SKILL_META[skillKey] || SKILL_META.general;
   const parts = ["应用方向：" + s.name + "。\n\n请根据下面内容生成一份 PPT：\n\n" + text];
+  if (state.clarifyNote) parts.push("\n\n" + state.clarifyNote + "\n（以上为生成前澄清得来的信息，优先采用；与原文冲突时以补充为准。）");
   if (refText) parts.push("\n\n【用户提供的参考材料（可引用）】：\n" + String(refText).slice(0, 20000));
   parts.push("\n\n" + densityRule());
   if (pagesHint && pagesHint >= 3) {
@@ -6787,6 +6861,15 @@ async function generate(){
       density:state.density||"auto",
       apiKey,baseUrl,model};
     saveApiPrefs(apiKey,model,baseUrl);
+
+  /* 换内容就重新走一次澄清 */
+  try{ if(window.__clrText !== text){ window.__clrText = text; state.clarifyOk = false; state.clarifyNote = ""; } }catch(e){}
+  /* ---- 生成前澄清：内容信息不足时先问一句（「直接生成」可跳过） ---- */
+  if(!state.clarifyOk){
+    const _qs=needClarify(text);
+    if(_qs.length){ renderClarify(_qs); return; }
+    state.clarifyOk=true;
+  }
 
     const res = state.backend
       ? await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},
