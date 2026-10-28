@@ -2760,7 +2760,7 @@ function buildSystemPromptJS(skillKey){
 
   var W = 0, Hh = 0, DPR = 1;
   var stars = [], neb = [], dust = [], meteors = [];
-  var glowSprite = null, raf = 0, running = false, prevTs = 0;
+  var glowSprite = null, bgCache = null, raf = 0, running = false, prevTs = 0;
 
   function rnd(a, b) { return a + Math.random() * (b - a); }
   function bandY(x) { return Hh * 0.52 + (x - W * 0.5) * Math.tan(TILT); }
@@ -2827,7 +2827,7 @@ function buildSystemPromptJS(skillKey){
 
   function buildStars() {
     stars = [];
-    var n = Math.min(2600, Math.round(W * Hh / 480));
+    var n = Math.min(2600, Math.round(W * Hh / (DPR >= 2 ? 620 : 480)));
     for (var i = 0; i < n; i++) {
       var x = Math.random() * W, y = Math.random() * Hh;
       var d = bandDist(x, y);
@@ -2885,6 +2885,7 @@ function buildSystemPromptJS(skillKey){
     buildDust();
     buildStars();
     buildMeteors();
+    buildBgCache();
     paintStatic(0);
   }
 
@@ -3007,6 +3008,24 @@ function buildSystemPromptJS(skillKey){
     ctx.globalAlpha = 1;
   }
 
+  /* 底图烘焙：底色 + 星云是每帧都不变的重活（9 团径向渐变），
+     DPR=2 时 canvas 面积翻 4 倍会直接掉到 16fps。烘焙成一张离屏图，
+     每帧只 drawImage 一次，帧率回到 55fps 以上。 */
+  function buildBgCache() {
+    var cc = document.createElement('canvas');
+    cc.width = cv.width;
+    cc.height = cv.height;
+    var g = cc.getContext('2d');
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    /* 复用同一套绘制函数：临时把 ctx 指过去 */
+    var real = ctx;
+    ctx = g;
+    paintBase();
+    paintNebula();
+    ctx = real;
+    bgCache = cc;
+  }
+
   function paintStatic(t) {
     ctx.clearRect(0, 0, W, Hh);
     paintBase();
@@ -3019,7 +3038,12 @@ function buildSystemPromptJS(skillKey){
     }
   }
 
+  var lastDraw = 0;
   function draw(ts) {
+    /* 30fps 节流：星点漂移极慢、流星本来也慢，60fps 是浪费；
+       DPR=2 时 canvas 像素面积是 1x 的 4 倍，不节流只有 15fps。 */
+    if (ts - lastDraw < 30) { raf = window.requestAnimationFrame(draw); return; }
+    lastDraw = ts;
     var dt = prevTs ? Math.min(2.4, (ts - prevTs) * 0.055) : 1;
     prevTs = ts;
     var t = ts * 0.001;
