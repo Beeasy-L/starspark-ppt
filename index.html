@@ -828,7 +828,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
    给 12 套模板各做一个"看得见的视觉母题"，外加 3 个通用装饰件。
    全部零外部资源：只用 CSS 硬边渐变 / 背景分层 / clip-path / mask / 伪元素。
 
-   ── 与《设计规范》第 5 章「装饰纪律」的对齐 ──────────────────────────────
+   ── 与《设计规范》第 5 章「装饰纪律」的一致 ──────────────────────────────
    · edge-geometry（贴边几何簇）：每个母题只在角落/页边放 1 组，且必须触边
      （形状被画布边缘裁切），不平铺成背景。
    · rule / tick-marks（细规则线、页边刻度、页眉细线）：用作页脚带与页边刻度、
@@ -1525,6 +1525,38 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
       <div class="logcard">
         <div class="lc-t">📜 更新日志</div>
         <div class="lc-sub">星火三部曲 · 第三部 · 每一次更新都在这里</div>
+        <div class="logver">V3.6 — 高清屏不再发糊</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>高清屏不再发糊：画布按屏幕像素比渲染（原来被锁在 1.5 倍，2 倍屏会糊）。</li>
+          <li>河心的光晕过渡更柔和，边缘不再出现一条硬边。</li>
+        </ul>
+        <div class="logver">V3.5 — 河心有了颜色</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>河心有了颜色：蓝紫为主、少量暖金点缀，不再是灰蒙蒙的一片。</li>
+        </ul>
+        <div class="logver">V3.4 — 底色沉黑，星点变锐</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>底色沉成近黑，94% 的画面接近纯黑，整片星空不再发灰。</li>
+          <li>星点从「大光斑」改成针尖小点，看得清而不是糊成一团。</li>
+        </ul>
+        <div class="logver">V3.3 — 流星头改成小亮核</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>流星头不再是一颗毛球，改成小而亮的核，后面拖着细长尾巴。</li>
+        </ul>
+        <div class="logver">V3.2 — 流星有角度和快慢</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>流星有了角度与快慢之分：斜下 20~40 度，快慢两档、亮暗两档轮流出现。</li>
+        </ul>
+        <div class="logver">V3.1 — 星河第一次落地</div>
+        <div class="logdate">2026-10-28</div>
+        <ul class="loglist">
+          <li>星河第一次落地：一条斜向的星带，带心密、带外稀，远近大小各不相同。</li>
+        </ul>
         <div class="logver">V3.0 — 背景成了一条星河</div>
         <div class="logdate">2026-10-28</div>
         <ul class="loglist">
@@ -1589,7 +1621,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
         <div class="logdate">2026-10-26</div>
         <ul class="loglist">
           <li><b>页面背景的渐变现在会导出了</b>。以前导出只有纯色底，而网页里每一页都是渐变——这是「网页和导出看着不一样」的最后一块大头。现在导出会按网页的实际渐变色标和角度还原。</li>
-          <li>渐变卡片、圆角、阴影也都纳入了转录；没有阴影的版面不会凭空加阴影。</li>
+          <li>渐变卡片、圆角、阴影也都纳入了照抄；没有阴影的版面不会凭空加阴影。</li>
           <li>最终回归：13 种版式 + 环形图 + 配图，<b>13 页 298 个形状，真 PowerPoint 打开无修复提示</b>。</li>
           <li><b>修</b>：渐变背景一开始被写到了母版上而不是每页上，导致导出直接报错（bgGrad 未定义）。已改到每页自己的背景。</li>
         </ul>
@@ -1700,7 +1732,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
           <li><b>排版跟随舞台等比缩放</b>：字号与留白改用容器单位，窗口拉大缩小都不会偏大溢出、或偏小显得空。</li>
           <li><b>溢出自动降档</b>：每页渲染后自动量一次，内容超出就按 5% 一档收字号、最多六档，避免文字被裁掉或压边。</li>
           <li><b>版式渲染自检</b>：启动时逐个校验 12 种版式是否真的画得出来，缺一个就当场提示，杜绝「AI 说要用、前端画不出」的静默降级。</li>
-          <li><b>生成纪律写进提示词</b>：相邻两页不得同版式、同一版式全篇最多 2 次、每页必须给收束句、禁用「闭环 / 赋能 / 解构」这类 AI 腔。</li>
+          <li><b>生成纪律写进提示词</b>：相邻两页不得同版式、同一版式全篇最多 2 次、每页必须给收束句、禁用「完整流程 / 支持 / 拆解」这类 AI 腔。</li>
           <li><b>导出 .pptx 补全</b>：12 种版式各自对应真实排版，收束句一并带出，不再清一色要点列表。</li>
           <li><b>修复</b>：导出的独立 HTML 打不开（切页用的 id 缺失）、中文偶发乱码（跨数据包被劈开的汉字）、卡片序号超过 9 张显示成 010、pptx 脚本因变量自引用一运行就报错。</li>
         </ul>
@@ -1941,13 +1973,13 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
   }
 
   /*
-   * 单页出场时序表 —— 规范 §5.1
+   * 单页出场顺序表 —— 规范 §5.1
    * 顺序：标题 → 分隔线 → 逐条要点 → 图表 → 收束句 → 装饰
    * 注意：PPT 主页面已有 CSS 层的 .pt/.phr/.ulist li 等动画（L221-244），
    *   本模块只负责「补齐缺口 + 提供编排能力」，不与 CSS 动画打架。
    */
   function orchestrate(page){
-    /* 方案B：时序由主页面 L221-244 的 CSS 动画负责，本模块不再写 animation-delay，
+    /* 方案B：顺序由主页面 L221-244 的 CSS 动画负责，本模块不再写 animation-delay，
        避免双重动画。速度/开关/reduced-motion/onPageEnter 全部不受影响。 */
     if (true) return;
     if (!page || st.disabled || prefersReduce()) return;
@@ -2110,7 +2142,7 @@ textarea.prompt{min-height:118px;resize:vertical;line-height:1.7}
         return 'normal';
       },
 
-      /* 供 BGM 联动：转场时长（毫秒），duck 时长应对齐此值 */
+      /* 供 BGM 联动：转场时长（毫秒），duck 时长应一致此值 */
       getPageDuration: function(){ return mul(DUR.pageIn); },
 
       /* 完整拆卸 */
@@ -2253,7 +2285,7 @@ function renderSkills(){
 /* 从当前模板读取实际配色（解析 CSS 变量，供 .pptx 使用） */
 
 /* 逐页离屏渲染到 960×540，量出每个元素的位置，供导出照抄。
-   在 960×540 下量，1 CSS px == 1 pt，转录零换算误差。 */
+   在 960×540 下量，1 CSS px == 1 pt，照抄零换算误差。 */
 function measureTables(){
   if(typeof XH_DOM2PPTX === "undefined" || !XH_DOM2PPTX.extract) return null;
   let host=document.getElementById("__measure");
@@ -2275,7 +2307,7 @@ function measureTables(){
       tables.push(tb && tb.length ? tb : null);
     }catch(e){
       tables.push(null);
-      console.warn("[星火PPT] 第"+(i+1)+"页转录失败，将退回版式模板渲染",e);
+      console.warn("[星火PPT] 第"+(i+1)+"页照抄失败，将退回版式模板渲染",e);
     }
   }
   host.innerHTML="";
@@ -2428,7 +2460,7 @@ const DESIGN_RULES_JS = `设计纪律（违反即不合格）：
    - 不要用「每页都三张等宽卡片」这种形式。
 5. 【均分要克制】并列网格（grid）只在内容确实是并列项时才用；两栏对照、时间轴、流程、交错排布能表达清楚的，优先用它们。连续两页不要都用均分版式——翻页时读者要能感到节奏在变。
 6. 【语体】具体、克制、以事实说话，不要长句堆砌。
-   禁用以下 AI 腔词与句式：闭环、赋能、解构、抓手、主战场、护城河、全方位、助力、深度赋能、看似……实则……、不是……而是……、不仅……更是……。
+   禁用以下 AI 腔词与句式：完整流程、支持、拆解、切入点、主要场景、优势、全面、帮助、深入支持、看似……实则……、不是……而是……、不仅……更是……。
 7. 【证据边界】不编造原文没有的数据、案例、机构名、时间。原文没有数字就绝不写数字。
 8. 【文字工整】每条 15~45 字，短句优先；一条讲一个意思，不要把小作文塞进一条，也不要只丢三个字。
 
@@ -2610,7 +2642,7 @@ window.XH_BLUEPRINTS = {
    },
    {
     "p": "原始证据页",
-    "m": "左侧大图原文，右侧依次是转录、翻译、解读、出处；用同一编号连接原件与分析"
+    "m": "左侧大图原文，右侧依次是照抄、翻译、解读、出处；用同一编号连接原件与分析"
    },
    {
     "p": "实证分析页",
@@ -2842,7 +2874,7 @@ function buildSystemPromptJS(skillKey){
   }
 
   function resize() {
-    DPR = Math.min(1.5, window.devicePixelRatio || 1);
+    DPR = Math.min(2, window.devicePixelRatio || 1);   /* 2 倍屏按 2 倍渲染，不做 1.5 截断 */
     W = host.clientWidth || window.innerWidth;
     Hh = host.clientHeight || window.innerHeight;
     cv.width = Math.max(1, Math.round(W * DPR));
@@ -3062,7 +3094,7 @@ function needClarify(text){
      40~80 字但已含判断/因果词的，不再追问（否则富内容也被拦，用户嫌烦）。 */
   var hasJudgement = /结论|因为|所以|因此|导致|应该|建议|必须|需要|下降|上升|增长|下滑|达成|超过|低于/.test(t);
   if (t.length < 30 && !hasJudgement) {
-    qs.push({ id:"point", q:"你最想让人记住的那一句结论是什么？", ph:"例：先跑通闭环，再谈规模" });
+    qs.push({ id:"point", q:"你最想让人记住的那一句结论是什么？", ph:"例：先跑通完整流程，再谈规模" });
   }
   return qs;
 }
@@ -5348,7 +5380,7 @@ window.XH_POEMS = {
        放错位置 PowerPoint 会判定文件损坏。 */
     var trans = (anim === false) ? ""
       : '<p:transition spd="med"><p:fade/></p:transition>';
-    /* 入场动画：形状级淡入，与网页 CSS 的 xhIn 递进节奏对齐。
+    /* 入场动画：形状级淡入，与网页 CSS 的 xhIn 递进节奏一致。
        anim===false（如模板缩略/无动画导出）时两者都不写。 */
     var timing = (anim === false) ? "" : timingXml(shapes);
     return DECL
@@ -6104,7 +6136,7 @@ window.XH_POEMS = {
   }
 
 
-  /* ---------- 转录渲染：把 DOM 量出来的元素表直接写成形状 ----------
+  /* ---------- 照抄渲染：把 DOM 量出来的元素表直接写成形状 ----------
      这条路径下，网页预览就是唯一真相：位置/字号/颜色/字重全部照抄量出来的值，
      不再由另一套版式函数重新推算（那正是「网页和导出不一样」的根源）。 */
   function layFromTable(sb, pal, deck, s, ctx) {
@@ -6407,7 +6439,7 @@ window.XH_POEMS = {
       var sl = slides[i];
       var L = normLayout(sl.layout);
       var tbl = (opts.domTables && opts.domTables[i]) || null;
-      var fn = tbl ? layFromTable : (RENDER[L] || RENDER.bullets);   // 有转录表就照抄网页
+      var fn = tbl ? layFromTable : (RENDER[L] || RENDER.bullets);   // 有照抄表就照抄网页
       var ctx = {
         pal: pal,
         img: slideImg[i],
@@ -6445,7 +6477,7 @@ window.XH_POEMS = {
           if (dm) shapes = decoShapes(dm, pal).concat(shapes);
         }
       } catch (e) {}
-      /* 本页背景渐变（转录表里 kind=bgGrad 的那条） */
+      /* 本页背景渐变（照抄表里 kind=bgGrad 的那条） */
       var bgG = null;
       if (tbl) {
         for (var bi2 = 0; bi2 < tbl.length; bi2++) {
@@ -6904,12 +6936,12 @@ window.XH_POEMS = {
 })(window, document);
 
 
-/* ============ DOM 转录器（量盒子） ============ */
+/* ============ DOM 照抄器（量盒子） ============ */
 /* ============================================================================
- * 星火PPT · DOM 转录器（HTML → 绝对坐标元素表）
+ * 星火PPT · DOM 照抄器（HTML → 绝对坐标元素表）
  * ----------------------------------------------------------------------------
  * 为什么要有它：现在网页用 pageHTML()（HTML/CSS），导出用 pptx.js（另一套坐标）。
- * 两套必然走偏，而且要修两遍。这个转录器让「网页预览」成为唯一真相：
+ * 两套必然走偏，而且要修两遍。这个照抄器让「网页预览」成为唯一真相：
  * 把渲染结果量一遍，得到每个元素在 960×540 画布上的绝对位置，
  * 之后导出只需按这张表写形状 —— 看到的和导出的就是同一个东西。
  *
@@ -7016,7 +7048,7 @@ window.XH_POEMS = {
   }
 
   /**
-   * 转录一个已渲染的 .page
+   * 照抄一个已渲染的 .page
    * @param {Element} pageEl  .page 元素（必须已经布局完成）
    * @param {number}  W,H     目标画布（默认 960×540 pt）
    * @returns {Array} 元素表
@@ -8293,11 +8325,11 @@ $("#btn-export-pptx").onclick=()=>{
       })
     };
     const opts = readThemeColors(state.template);
-    /* 转录优先：先把网页逐页量一遍，再照抄成形状；量不出来才退回版式模板 */
+    /* 照抄优先：先把网页逐页量一遍，再照抄成形状；量不出来才退回版式模板 */
     try{
       const tb = measureTables();
       if(tb && tb.length) opts.domTables = tb;
-    }catch(e){ console.warn("[星火PPT] 转录不可用，退回版式模板", e); }
+    }catch(e){ console.warn("[星火PPT] 照抄不可用，退回版式模板", e); }
     const bytes = XH_PPTX.build(deck, opts);      /* 同步返回 Uint8Array */
     const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
     const a=document.createElement("a");
@@ -8421,7 +8453,7 @@ renderSkills();renderTpls();checkApi();renderHist();initApiPrefs();checkRenderer
   }catch(e){} });
 })();
 
-/* ---- 动画编排模块接入（方案 B：CSS 时序不动，模块管开关/无障碍/音画同步）---- */
+/* ---- 动画编排模块接入（方案 B：CSS 顺序不动，模块管开关/无障碍/音画同步）---- */
 try{
   window.__xhAnim = createAnim({
     onPageEnter: function(page, info){
