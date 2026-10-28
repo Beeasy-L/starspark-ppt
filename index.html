@@ -2704,20 +2704,16 @@ function buildSystemPromptJS(skillKey){
     "内容忠于原文；原文不足以支撑页数时，宁可少一页，也不要编造或灌水。\n";
 }
 
-/* ===================== 背景星河（canvas，纯自实现） =====================
-   要的是「河」不是「撒点」：
-     · 方向   —— 星带沿 -22° 斜向铺开，整体有流向
-     · 疏密   —— 带中心密、带外稀（按到带心的距离概率剔除）
-     · 远近   —— 三档景深：远处小而暗、近处大而亮，并各自有不同漂移速度
-     · 亮暗   —— 每颗星自己呼吸（twinkle），不是恒定亮度
-     · 流星   —— 带轨迹划过：头部亮点 + 渐隐尾迹，方向与星带一致
-   无障碍：prefers-reduced-motion 时只画一帧静态星带（含几道静止的流星痕），不起 rAF。
-   性能：DPR 上限 1.5、星星总数按面积封顶、页面不可见时暂停。 */
-(function(){
-  var XH_RIVER = true;
+/* ===================== 背景星河 v2（canvas，纯自实现） =====================
+   要一条「河」，不是撒点：
+     星云  沿斜轴铺 8 团柔光（偶尔暖金），叠出不规则的河形体量
+     星点  预渲染发光精灵（冷白蓝/纯白/暖金），分三档景深做视差
+     流星  曲线尾迹 + 发光头部，稀发、缓慢、渐入渐出
+   无障碍：prefers-reduced-motion 只画一帧静态（星云+星点+几道静止流星痕）
+   性能：精灵预渲染避免逐帧 shadowBlur；DPR≤1.5；页面隐藏时暂停 */
+(function () {
   var host = document.querySelector('.stars');
   if (!host) return;
-
   var cv = document.createElement('canvas');
   cv.setAttribute('aria-hidden', 'true');
   cv.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block';
@@ -2726,58 +2722,126 @@ function buildSystemPromptJS(skillKey){
   if (!ctx) return;
 
   var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  var TILT = -22 * Math.PI / 180;          /* 星带方向 */
+  var TILT = -19 * Math.PI / 180;
   var CT = Math.cos(TILT), ST = Math.sin(TILT);
 
   var W = 0, Hh = 0, DPR = 1;
-  var stars = [], meteors = [], t0 = 0, raf = 0, running = false;
+  var sprites = [], stars = [], neb = [], meteors = [], raf = 0, running = false, prevTs = 0;
 
   function rnd(a, b) { return a + Math.random() * (b - a); }
 
-  /* 沿倾斜轴的坐标：v 越小越靠近星带中心 */
-  function bandDist(x, y) {
-    var v = -x * ST + y * CT;
-    return Math.abs(v - Hh * 0.5) / (Hh * 0.24);
+  /* 带中心线 y：随 x 倾斜，让整条河有方向 */
+  function bandY(x) { return Hh * 0.52 + (x - W * 0.5) * Math.tan(TILT); }
+  /* 到带心的归一距离（0 在带上，1 在外）*/
+  function bandDist(x, y) { return Math.abs(y - bandY(x)) / (Hh * 0.30); }
+
+  /* 预渲染发光精灵 */
+  function sprite(rgbArr, r, glow) {
+    var S = Math.max(6, Math.ceil(r * 7));
+    var cc = document.createElement('canvas');
+    cc.width = cc.height = S;
+    var g = cc.getContext('2d');
+    var rg = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    var c = rgbArr[0] + ',' + rgbArr[1] + ',' + rgbArr[2];
+    rg.addColorStop(0, 'rgba(' + c + ',1)');
+    rg.addColorStop(0.09, 'rgba(' + c + ',0.97)');   /* 锐利核心 */
+    rg.addColorStop(0.19, 'rgba(' + c + ',' + (0.42 * glow).toFixed(3) + ')');
+    rg.addColorStop(0.42, 'rgba(' + c + ',' + (0.10 * glow).toFixed(3) + ')');
+    rg.addColorStop(0.72, 'rgba(' + c + ',' + (0.025 * glow).toFixed(3) + ')');
+    rg.addColorStop(1, 'rgba(' + c + ',0)');
+    g.fillStyle = rg;
+    g.beginPath();
+    g.arc(S / 2, S / 2, S / 2, 0, 6.2832);
+    g.fill();
+    return { cv: cc, s: S };
   }
 
-  function build() {
-    stars = []; meteors = [];
-    var n = Math.min(1500, Math.round(W * Hh / 1500));
+  function buildSprites() {
+    sprites = [
+      sprite([176, 202, 255], 1.5, 1.0),   /* 0 冷白蓝 小 */
+      sprite([232, 240, 255], 2.1, 1.2),   /* 1 纯白 中 */
+      sprite([146, 176, 255], 1.2, 0.9),   /* 2 淡蓝 极小 */
+      sprite([255, 238, 205], 2.0, 1.1),   /* 3 暖金 */
+      sprite([255, 250, 240], 3.1, 1.6)    /* 4 亮星带辉光 */
+    ];
+  }
+
+  function buildNebula() {
+    neb = [];
+    var n = 9;
+    for (var i = 0; i < n; i++) {
+      var t = i / (n - 1);
+      var px = -W * 0.12 + W * 1.24 * t + rnd(-W * 0.03, W * 0.03);
+      var py = bandY(px) + rnd(-Hh * 0.07, Hh * 0.07);
+      var warm = (i === 3 || i === 7);
+      neb.push({
+        x: px, y: py,
+        r: (0.20 + Math.random() * 0.20) * Math.max(W, Hh),
+        a: 0.062 + Math.random() * 0.052,
+        c: warm ? [242, 198, 109] : (i % 2 ? [120, 148, 238] : [150, 130, 225])
+      });
+    }
+  }
+
+  function buildStars() {
+    stars = [];
+    var n = Math.min(1600, Math.round(W * Hh / 900));
     for (var i = 0; i < n; i++) {
       var x = Math.random() * W, y = Math.random() * Hh;
       var d = bandDist(x, y);
-      /* 带外按距离概率剔除 → 疏密 */
-      if (Math.random() < Math.min(0.90, d * d * 0.95)) continue;
-      var depth = Math.random();                 /* 0 远 → 1 近 */
-      var inBand = 1 - Math.min(1, d);           /* 越靠带心越亮 */
+      /* 二次剔除：带心密、带外稀，边缘柔和 */
+      if (Math.random() < Math.min(0.93, d * d * 0.98)) continue;
+      var depth = Math.random();
+      var inBand = 1 - Math.min(1, d);
+      var kind;
+      var r0 = Math.random();
+      if (depth > 0.94 && r0 > 0.72) kind = 4;           /* 少数亮星带辉光 */
+      else if (r0 > 0.68) kind = 3;                       /* 暖金 */
+      else if (depth > 0.62) kind = 1;                    /* 近处纯白 */
+      else if (depth > 0.30) kind = 0;                    /* 中景冷白蓝 */
+      else kind = 2;                                      /* 远景淡蓝极小 */
       stars.push({
-        x: x, y: y,
-        r: 0.5 + depth * depth * 1.9,
-        a: Math.min(1, (0.30 + depth * 0.70) * (0.50 + 0.50 * inBand) + 0.06),
-        sp: 0.035 + depth * 0.42,                /* 视差：近的漂得快 */
-        tw: Math.random() * 6.283,
-        tws: rnd(0.35, 1.15),
-        warm: Math.random() < 0.22                 /* 少数偏金，呼应主题色 */
+        x: x, y: y, k: kind,
+        s: 0.75 + depth * 0.85,
+        a: Math.min(1, (0.30 + depth * 0.62) * (0.42 + 0.58 * inBand) + 0.05),
+        tw: Math.random() * 6.2832,
+        tws: rnd(0.25, 0.85),
+        sp: 0.012 + depth * 0.22
       });
     }
-    var mn = 5 + Math.round(Math.random() * 3);
-    for (var m = 0; m < mn; m++) meteors.push(newMeteor(true));
   }
 
+  /* 流星档位：0=慢而长（优雅），1=快而亮（利落）；亮度两档 */
   function newMeteor(init) {
-    var dir = 1;                                   /* 沿 +x 方向划 */
-    var baseY = Hh * 0.5 + rnd(-Hh * 0.17, Hh * 0.17);
+    var fast = Math.random() < 0.45;
+    var bright = Math.random() < 0.5;
+    /* 出生点：横向铺开、纵向在带上方一点，斜下时正好穿过画面中段，
+       避免从角落飞出去只露半截 */
+    var x = rnd(-W * 0.15, W * 0.95);
+    var yOff = -Hh * (0.10 + Math.random() * 0.22);
+    /* 角度 20°~40° 斜下（屏幕坐标 dy>0 为向下）*/
+    var ang = rnd(20, 40) * Math.PI / 180;
+    var w = fast ? rnd(1.5, 2.2) : rnd(2.0, 2.9);
     return {
-      /* 重生位置沿整条带铺开，否则跑一会儿全挤到左边 */
-      x: init ? rnd(-W * 0.2, W * 1.05) : rnd(-W * 0.5, W * 0.7),
-      y: baseY + rnd(-Hh * 0.12, Hh * 0.12),
-      len: rnd(120, 300),
-      sp: rnd(2.0, 4.4) * dir,
-      w: rnd(1.0, 2.2),
-      life: init ? rnd(0, 220) : 0,
-      wait: init ? 0 : rnd(40, 240),
-      dir: dir
+      x: x,
+      y: bandY(x) + yOff,
+      ang: ang,
+      /* 拖尾长度：≥ 头部直径(2w) 的 5 倍；慢的更长 */
+      len: fast ? rnd(150, 240) : rnd(300, 460),
+      sp: fast ? rnd(3.4, 4.8) : rnd(1.3, 1.9),
+      w: w,
+      bright: bright ? 1.0 : 0.62,
+      life: 0,
+      span: fast ? rnd(90, 140) : rnd(220, 330),
+      /* 间隔不等距：指数分布，偶尔连发 */
+      wait: init ? rnd(0, 120) : Math.round(70 + Math.pow(Math.random(), 2.4) * 640),
+      bow: rnd(-22, 22) * (fast ? 0.6 : 1)
     };
+  }
+
+  function buildMeteors() {
+    meteors = [];
+    for (var i = 0; i < 3; i++) meteors.push(newMeteor(true));
   }
 
   function resize() {
@@ -2787,108 +2851,136 @@ function buildSystemPromptJS(skillKey){
     cv.width = Math.max(1, Math.round(W * DPR));
     cv.height = Math.max(1, Math.round(Hh * DPR));
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    build();
-    if (REDUCE) drawStatic(); else draw(0);
+    buildSprites();
+    buildNebula();
+    buildStars();
+    buildMeteors();
+    paintStatic(0);
   }
 
-  /* 静态一帧：星带 + 几道静止的流星痕 */
-  function drawStatic() {
-    ctx.clearRect(0, 0, W, Hh);
-    /* 星带底光 */
-    var g = ctx.createLinearGradient(0, Hh * 0.5 - Hh * 0.3, W, Hh * 0.5 + Hh * 0.3);
-    g.addColorStop(0, 'rgba(120,150,230,0)');
-    g.addColorStop(0.45, 'rgba(130,166,255,.055)');
-    g.addColorStop(0.62, 'rgba(242,198,109,.030)');
-    g.addColorStop(1, 'rgba(120,150,230,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, Hh);
-    for (var i = 0; i < stars.length; i++) paintStar(stars[i], 1, 0);
-    for (var k = 0; k < 3; k++) {
-      var mx = W * (0.18 + 0.3 * k), my = Hh * 0.5 + rnd(-Hh * 0.1, Hh * 0.1);
-      paintMeteor({ x: mx, y: my, len: 130, w: 1.2, dir: 1 }, 0.55);
+  function paintNebula() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < neb.length; i++) {
+      var o = neb[i];
+      var g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+      var c = o.c[0] + ',' + o.c[1] + ',' + o.c[2];
+      g.addColorStop(0, 'rgba(' + c + ',' + o.a.toFixed(3) + ')');
+      g.addColorStop(0.45, 'rgba(' + c + ',' + (o.a * 0.42).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(' + c + ',0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r, 0, 6.2832);
+      ctx.fill();
     }
+    ctx.restore();
   }
 
-  function paintStar(s, tw, dt) {
-    var a = s.a * (0.55 + 0.45 * Math.sin(s.tw + tw * s.tws));
+  function paintStar(st, t, dt) {
+    var a = st.a * (0.62 + 0.38 * Math.sin(st.tw + t * st.tws));
     if (a <= 0.01) return;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, 6.2832);
-    ctx.fillStyle = s.warm
-      ? 'rgba(242,198,109,' + a.toFixed(3) + ')'
-      : 'rgba(214,226,255,' + a.toFixed(3) + ')';
-    ctx.fill();
+    var sp = sprites[st.k];
+    var size = sp.s * st.s;
+    ctx.globalAlpha = a;
+    ctx.drawImage(sp.cv, st.x - size / 2, st.y - size / 2, size, size);
+    ctx.globalAlpha = 1;
   }
 
   function paintMeteor(m, intensity) {
-    var dx = CT * m.dir, dy = ST * m.dir;          /* 沿星带方向 */
+    if (intensity <= 0.01) return;
+    var inten = intensity * (m.bright || 1);
+    var dx = Math.cos(m.ang), dy = Math.sin(m.ang);
     var hx = m.x, hy = m.y;
-    var tx = hx - dx * m.len, ty = hy - dy * m.len;
-    var g = ctx.createLinearGradient(tx, ty, hx, hy);
-    var al = 0.55 * intensity;
-    g.addColorStop(0, 'rgba(150,180,240,0)');
-    g.addColorStop(0.65, 'rgba(190,210,255,' + (al * 0.45).toFixed(3) + ')');
-    g.addColorStop(1, 'rgba(255,246,224,' + al.toFixed(3) + ')');
-    ctx.strokeStyle = g;
-    ctx.lineWidth = m.w;
-    ctx.lineCap = 'round';
+    var px = -dy, py = dx;                      /* 法向，用于弧度 */
+    var N = 18;
+    /* 锥形拖尾：分段绘制，越靠头越粗越亮，尾端渐隐到 0 */
+    for (var i = 0; i < N; i++) {
+      var t0 = i / N, t1 = (i + 1) / N;
+      function pt(t) {
+        var k = 1 - t;                          /* 0 在头，1 在尾 */
+        var bow = m.bow * Math.sin(Math.PI * t) * 0.5;
+        return {
+          x: hx - dx * m.len * t + px * bow,
+          y: hy - dy * m.len * t + py * bow
+        };
+      }
+      var a = pt(t0), b = pt(t1);
+      var ww = m.w * (0.10 + 0.90 * Math.pow(1 - t1, 1.35));   /* 头粗尾细 */
+      var aa = inten * Math.pow(1 - t1, 1.9);
+      if (aa <= 0.008) continue;
+      /* 尾端偏冷蓝，近头偏暖白 */
+      var mixt = 1 - t1;
+      var r = Math.round(170 + 85 * mixt), g2 = Math.round(195 + 55 * mixt), b2 = Math.round(250 - 12 * mixt);
+      ctx.strokeStyle = 'rgba(' + r + ',' + g2 + ',' + b2 + ',' + aa.toFixed(3) + ')';
+      ctx.lineWidth = ww;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+    /* 头核：小而锐 */
     ctx.beginPath();
-    ctx.moveTo(tx, ty);
-    ctx.lineTo(hx, hy);
-    ctx.stroke();
-    /* 头部亮点 */
-    ctx.beginPath();
-    ctx.arc(hx, hy, m.w * 1.15, 0, 6.2832);
-    ctx.fillStyle = 'rgba(255,250,235,' + (0.85 * intensity).toFixed(3) + ')';
+    ctx.arc(hx, hy, Math.max(1.2, m.w * 0.85), 0, 6.2832);
+    ctx.fillStyle = 'rgba(255,253,245,' + Math.min(1, inten).toFixed(3) + ')';
     ctx.fill();
+    /* 头光晕：紧一点，不要毛球 */
+    var sp = sprites[1];
+    var size = sp.s * 2.0;
+    ctx.globalAlpha = Math.min(1, inten * 0.75);
+    ctx.drawImage(sp.cv, hx - size / 2, hy - size / 2, size, size);
+    ctx.globalAlpha = 1;
+  }
+
+  function paintStatic(t) {
+    ctx.clearRect(0, 0, W, Hh);
+    paintNebula();
+    for (var i = 0; i < stars.length; i++) paintStar(stars[i], t || 0, 0);
+    /* 静态时留几道静止流星痕，保留「流星」的意象 */
+    for (var k = 0; k < 3; k++) {
+      var xx = W * (0.22 + 0.28 * k) + (k * 37 % 60);
+      paintMeteor({ x: xx, y: bandY(xx) + rnd(-20, 20), ang: rnd(22, 38) * Math.PI / 180,
+                    len: rnd(260, 380), w: rnd(2.0, 2.6), bow: rnd(-14, 14), bright: 0.55 }, 0.85);
+    }
   }
 
   function draw(ts) {
-    if (!t0) t0 = ts;
-    var tw = ts * 0.001;
-    var dt = Math.min(3, (ts - (draw._p || ts)) * 0.06);
-    draw._p = ts;
+    var dt = prevTs ? Math.min(2.4, (ts - prevTs) * 0.055) : 1;
+    prevTs = ts;
+    var t = ts * 0.001;
 
     ctx.clearRect(0, 0, W, Hh);
+    paintNebula();
 
-    /* 星带底光：一条斜向的淡雾，给「河」的形体 */
-    var g = ctx.createLinearGradient(0, Hh * 0.5 - Hh * 0.30, W, Hh * 0.5 + Hh * 0.30);
-    g.addColorStop(0, 'rgba(120,150,230,0)');
-    g.addColorStop(0.45, 'rgba(130,166,255,.05)');
-    g.addColorStop(0.62, 'rgba(242,198,109,.028)');
-    g.addColorStop(1, 'rgba(120,150,230,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, Hh);
-
-    /* 星星：呼吸 + 沿带方向缓慢漂移（视差） */
     for (var i = 0; i < stars.length; i++) {
-      var s = stars[i];
-      s.x += CT * s.sp * dt * 0.5;
-      s.y += ST * s.sp * dt * 0.5;
-      if (s.x > W + 4) { s.x = -4; s.y = Math.random() * Hh; }
-      if (s.x < -4) { s.x = W + 4; }
-      paintStar(s, tw, dt);
+      var st = stars[i];
+      st.x += CT * st.sp * dt * 0.6;
+      st.y += ST * st.sp * dt * 0.6;
+      if (st.x > W + 6) { st.x = -6; st.y = Math.random() * Hh; }
+      if (st.x < -6) { st.x = W + 6; }
+      paintStar(st, t, dt);
     }
 
-    /* 流星 */
     for (var k = 0; k < meteors.length; k++) {
       var m = meteors[k];
-      if (m.wait > 0) { m.wait -= dt * 6; continue; }
-      m.x += CT * m.sp * dt * 1.9;
-      m.y += ST * m.sp * dt * 1.9;
-      m.life += dt * 6;
-      var intensity = m.life < 18 ? m.life / 18 : (m.life > 150 ? Math.max(0, 1 - (m.life - 150) / 60) : 1);
-      paintMeteor(m, intensity);
-      if (m.x > W + m.len || m.life > 210) {
-        meteors[k] = newMeteor(false);
-      }
+      if (m.wait > 0) { m.wait -= dt * 5; continue; }
+      m.x += Math.cos(m.ang) * m.sp * dt * 2.2;
+      m.y += Math.sin(m.ang) * m.sp * dt * 2.2;
+      m.life += dt * 5;
+      var inten = 1;
+      if (m.life < 26) inten = m.life / 26;
+      else if (m.life > m.span - 46) inten = Math.max(0, (m.span - m.life) / 46);
+      paintMeteor(m, inten);
+      if (m.life > m.span || m.x > W + m.len || m.y > Hh + m.len) meteors[k] = newMeteor(false);
     }
+
     raf = window.requestAnimationFrame(draw);
   }
 
   function start() {
     if (REDUCE || running) return;
     running = true;
+    prevTs = 0;
     raf = window.requestAnimationFrame(draw);
   }
   function stop() {
@@ -2905,7 +2997,7 @@ function buildSystemPromptJS(skillKey){
     var rt = null;
     window.addEventListener('resize', function () {
       clearTimeout(rt);
-      rt = setTimeout(function () { stop(); resize(); start(); }, 220);
+      rt = setTimeout(function () { stop(); resize(); start(); }, 240);
     });
   }
   window.XH_RIVER = { redraw: resize, isStatic: REDUCE };
